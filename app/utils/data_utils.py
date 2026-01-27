@@ -43,14 +43,21 @@ def normalize_features(features: np.ndarray) -> np.ndarray:
     """
     Normalize feature values
     
+    Note: This is a placeholder for feature normalization.
+    In production, load and use a pre-fitted StandardScaler or MinMaxScaler
+    that was saved during model training to ensure consistent scaling.
+    
     Args:
         features: Raw feature array
         
     Returns:
-        Normalized feature array
+        Normalized feature array (currently returns unchanged)
     """
-    # Simple min-max normalization
-    # In production, use saved scaler from training
+    # TODO: Implement proper normalization using saved scaler from training
+    # Example:
+    # from joblib import load
+    # scaler = load('ml/scaler.pkl')
+    # return scaler.transform(features.reshape(1, -1))
     return features
 
 

@@ -51,6 +51,11 @@ cd Mobile-Phone-Price-Prediction
 pip install -r requirements.txt
 ```
 
+3. (Optional) Set environment variables for security:
+```bash
+export ADMIN_API_KEY="your-secure-admin-key"
+```
+
 ## Usage
 
 ### Running the API Server

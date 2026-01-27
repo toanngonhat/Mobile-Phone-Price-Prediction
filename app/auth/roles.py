@@ -1,4 +1,5 @@
 """Role-based access control for the application"""
+import os
 from fastapi import HTTPException, Header
 from typing import Optional
 
@@ -26,8 +27,10 @@ def get_current_user(x_api_key: Optional[str] = Header(None)):
     if x_api_key is None:
         return {"role": UserRole.GUEST, "username": "guest"}
     
-    # Mock API key validation
-    if x_api_key == "admin-key-123":
+    # Validate API key against environment variable
+    admin_key = os.environ.get("ADMIN_API_KEY", "admin-key-123")  # Fallback for development only
+    
+    if x_api_key == admin_key:
         return {"role": UserRole.ADMIN, "username": "admin"}
     elif x_api_key.startswith("user-"):
         return {"role": UserRole.USER, "username": "user"}
