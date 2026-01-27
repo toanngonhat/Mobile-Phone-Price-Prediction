@@ -27,7 +27,7 @@ class PhoneFeatures(BaseModel):
     wifi: int = Field(..., description="Has WiFi (0 or 1)", ge=0, le=1)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "battery_power": 1500,
                 "blue": 1,
@@ -60,7 +60,7 @@ class PredictionResponse(BaseModel):
     features: PhoneFeatures = Field(..., description="Input features used for prediction")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "predicted_price": 450.75,
                 "features": {
