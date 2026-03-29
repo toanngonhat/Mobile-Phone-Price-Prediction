@@ -1,3 +1,1 @@
-"""
-Utility functions package
-"""
+"""Utility package for predictor system."""

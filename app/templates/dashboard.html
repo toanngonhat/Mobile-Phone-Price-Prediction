@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phone Predictor Dashboard</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f4f7fb; margin: 0; color: #243; }
+    .top { background: #fff; padding: 14px 20px; border-bottom: 1px solid #dde5ef; display: flex; justify-content: space-between; align-items: center; }
+    .container { max-width: 980px; margin: 18px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 6px 16px rgba(0,0,0,.06); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .field label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .field input, .field select { width: 100%; box-sizing: border-box; border: 1px solid #ccd4e0; border-radius: 8px; padding: 10px; }
+    .actions { margin-top: 12px; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; background: #0a7; color: #fff; }
+    .danger { background: #c43; }
+    .outline { background: #fff; color: #0a7; border: 1px solid #0a7; }
+    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #e9f8f4; color: #0a7; font-size: 12px; }
+    .result { font-size: 20px; font-weight: 700; color: #084; }
+    .alert { margin-bottom: 12px; padding: 10px; border-radius: 8px; background: #ffe8e8; color: #a11; }
+    pre { white-space: pre-wrap; word-wrap: break-word; background: #f6f8fc; padding: 10px; border-radius: 8px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <strong>Dashboard</strong>
+      <span class="pill">Role: {{ role }}</span>
+      <span class="pill">User: {{ username }}</span>
+    </div>
+    <a href="/logout"><button class="danger">Logout</button></a>
+  </div>
+
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card">
+      <h3>Predict Phone Price</h3>
+      <form method="post" action="{{ '/data-science' if role == 'data_science' else '/user' }}">
+        {% if role == 'data_science' %}
+          <input type="hidden" name="action" value="predict" />
+        {% endif %}
+        <div class="grid">
+          <div class="field">
+            <label>Brand</label>
+            <select id="branch" name="branch" required>
+              {% for brand in brand_options %}
+                <option value="{{ brand }}" {% if form_data.get('branch', 'iPhone') == brand %}selected{% endif %}>{{ brand }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Model</label>
+            <select id="model" name="model" required></select>
+          </div>
+          <div class="field non-iphone-field">
+            <label>RAM (GB)</label>
+            <input name="ram" type="number" min="1" max="32" value="{{ form_data.get('ram', '') }}" required />
+          </div>
+          <div class="field">
+            <label>ROM/Internal Memory (GB)</label>
+            <input name="storage" type="number" min="8" max="1024" value="{{ form_data.get('storage', '') }}" required />
+          </div>
+          <div class="field">
+            <label>Battery Health (%)</label>
+            <input name="battery_health" value="{{ form_data.get('battery_health', '') }}" />
+          </div>
+          <div class="field">
+            <label>Days Used</label>
+            <input name="days_used" type="number" min="1" max="1825" value="{{ form_data.get('days_used', '365') }}" required />
+          </div>
+          <div class="field">
+            <label>New Price Device (optional)</label>
+            <input name="normalized_new_price" type="number" step="0.01" value="{{ form_data.get('normalized_new_price', '') }}" />
+          </div>
+        </div>
+        <div class="actions"><button type="submit">Predict</button></div>
+      </form>
+      {% if prediction is not none %}
+        <p class="result">Predicted price: ${{ '%.2f'|format(prediction) }}</p>
+      {% endif %}
+    </div>
+
+    {% if role == 'data_science' %}
+      <div class="card">
+        <h3>Train Model</h3>
+        <form method="post" action="/data-science">
+          <input type="hidden" name="action" value="train" />
+          <div class="grid">
+            <div class="field">
+              <label>Records</label>
+              <input name="records" type="number" min="1" value="1000" required />
+            </div>
+            <div class="field">
+              <label>Distribution</label>
+              <select name="distribution">
+                <option value="uniform">uniform</option>
+                <option value="latest_heavy">latest_heavy</option>
+                <option value="promax_heavy">promax_heavy</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label><input name="append_only" type="checkbox" /> append_only</label></div>
+          <div class="actions"><button type="submit" class="outline">Train</button></div>
+        </form>
+        {% if training_metrics %}
+          <pre>{{ training_metrics }}</pre>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h3>Dataset Stats</h3>
+        <form method="post" action="/data-science">
+          <input type="hidden" name="action" value="stats" />
+          <button type="submit" class="outline">Load Stats</button>
+        </form>
+        {% if dataset_stats %}
+          <pre>{{ dataset_stats }}</pre>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+    const modelOptionsByBrand = {{ model_options_by_brand|tojson }};
+    const selectedModel = {{ form_data.get('model', '')|tojson }};
+
+    function syncModelOptions() {
+      const brand = document.getElementById('branch').value;
+      const modelSelect = document.getElementById('model');
+      const models = modelOptionsByBrand[brand] || [];
+      const isIphone = (brand || '').trim().toLowerCase() === 'iphone';
+
+      modelSelect.innerHTML = '';
+      models.forEach((modelName) => {
+        const option = document.createElement('option');
+        option.value = modelName;
+        option.textContent = modelName;
+        if (selectedModel && modelName.toLowerCase() === selectedModel.toLowerCase()) {
+          option.selected = true;
+        }
+        modelSelect.appendChild(option);
+      });
+
+      document.querySelectorAll('.non-iphone-field').forEach((el) => {
+        el.style.display = isIphone ? 'none' : 'block';
+      });
+      document.querySelectorAll('input[name="ram"]').forEach((inputEl) => {
+        inputEl.required = !isIphone;
+      });
+    }
+
+    document.getElementById('branch').addEventListener('change', syncModelOptions);
+    syncModelOptions();
+  </script>
+</body>
+</html>

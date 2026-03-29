@@ -1,53 +1,27 @@
-"""
-Data utilities for dataset handling and preprocessing.
-Provides functions for loading, saving, and analyzing datasets.
-"""
-import os
+"""Data utility helpers for dataset validation and summary."""
+from __future__ import annotations
+
 import pandas as pd
-from fastapi import UploadFile
+
+from app.config.settings import RAW_SCHEMA
 
 
-async def save_dataset(file: UploadFile) -> str:
-    """
-    Save uploaded CSV dataset to data directory.
-    Returns the file path.
-    """
-    os.makedirs("data", exist_ok=True)
-    file_path = f"data/{file.filename}"
-    
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-    
-    return file_path
+def validate_schema(df: pd.DataFrame) -> None:
+    missing = [col for col in RAW_SCHEMA if col not in df.columns]
+    if missing:
+        raise ValueError(f"Dataset schema mismatch. Missing columns: {missing}")
 
 
-def get_dataset_statistics(file_path: str) -> dict:
-    """
-    Generate statistics for the uploaded dataset.
-    Returns summary information about the data.
-    
-    TODO: Add more detailed statistical analysis
-    TODO: Add data quality checks
-    """
-    df = pd.read_csv(file_path)
-    
-    stats = {
-        "total_records": len(df),
-        "columns": df.columns.tolist(),
-        "missing_values": df.isnull().sum().to_dict(),
-        "shape": df.shape,
+def dataset_summary(df: pd.DataFrame) -> dict:
+    validate_schema(df)
+    return {
+        "rows": int(len(df)),
+        "columns": list(df.columns),
+        "brand_count": int(df["device_brand"].nunique()),
+        "year_range": {
+            "min": int(df["release_year"].min()),
+            "max": int(df["release_year"].max()),
+        },
+        "contains_4g": "4g" in df.columns,
+        "contains_5g": "5g" in df.columns,
     }
-    
-    # Add price range if price column exists
-    price_columns = [col for col in df.columns if 'price' in col.lower()]
-    if price_columns:
-        price_col = price_columns[0]
-        stats["price_range"] = {
-            "min": float(df[price_col].min()),
-            "max": float(df[price_col].max()),
-            "mean": float(df[price_col].mean()),
-            "median": float(df[price_col].median())
-        }
-    
-    return stats

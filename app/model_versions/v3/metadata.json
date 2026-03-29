@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "records": 4454,
+  "kaggle_dataset": "ahsan81/used-handheld-device-data",
+  "features": [
+    "brand",
+    "ram",
+    "storage",
+    "battery_capacity",
+    "screen_size",
+    "camera_mp"
+  ],
+  "excluded_features": [
+    "4g",
+    "5g"
+  ],
+  "target": "exp(normalized_used_price)",
+  "mae": 34.765953661514466,
+  "rmse": 60.2850208737139,
+  "r2": 0.9556127662503141,
+  "trained_at": "2026-03-29T16:45:20.694132+00:00"
+}

@@ -44,11 +44,6 @@ venv.bak/
 htmlcov/
 .tox/
 
-# ML Models
-ml/trained_model.pkl
-ml/*.pkl
-ml/*.joblib
-
 # Data
 data/*.csv
 !data/sample_phone_data.csv
