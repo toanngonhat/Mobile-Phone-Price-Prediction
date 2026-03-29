@@ -1,4 +1,5 @@
-"""
-Mobile Phone Price Prediction API
-Backend application for predicting phone prices based on specifications.
-"""
+"""Application package root for web phone price prediction."""
+
+import sys
+
+sys.dont_write_bytecode = True

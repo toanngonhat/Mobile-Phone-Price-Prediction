@@ -1,3 +1,1 @@
-"""
-Pydantic models package
-"""
+"""Model package for phone price prediction."""

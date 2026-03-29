@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Quick Start Script for Mobile Phone Price Prediction API
+# Quick Start Script for Mobile Phone Price Prediction
 
-echo "🚀 Mobile Phone Price Prediction API - Quick Start"
+echo "🚀 Mobile Phone Price Prediction - Quick Start"
 echo "=================================================="
 echo ""
 
@@ -19,6 +19,9 @@ echo ""
 echo "🔧 Activating virtual environment..."
 source venv/bin/activate
 
+# Disable __pycache__ generation for this session
+export PYTHONDONTWRITEBYTECODE=1
+
 echo ""
 echo "📥 Installing dependencies..."
 pip install -r requirements.txt
@@ -26,12 +29,11 @@ pip install -r requirements.txt
 echo ""
 echo "✅ Setup complete!"
 echo ""
-echo "🎯 To start the server, run:"
-echo "   python -m app.main"
+echo "🎯 To start localhost web UI, run:"
+echo "   python app.py"
 echo ""
-echo "Or:"
-echo "   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+echo "Or train directly:"
+echo "   python train.py --records 1000"
 echo ""
-echo "📖 API Documentation will be available at:"
-echo "   http://localhost:8000/docs"
+echo "✅ System now runs on localhost web UI (no API layer)."
 echo ""
