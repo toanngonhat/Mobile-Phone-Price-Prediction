@@ -179,10 +179,7 @@
                 <label>Days Used</label>
                 <input name="days_used" type="number" min="1" max="1825" value="{{ form_data.get('days_used', '365') }}" required />
               </div>
-              <div class="field">
-                <label>New Price Device (optional)</label>
-                <input name="normalized_new_price" type="number" step="0.01" value="{{ form_data.get('normalized_new_price', '') }}" />
-              </div>
+
             </div>
             <div class="actions"><button type="submit">Predict</button></div>
           </form>
@@ -469,10 +466,7 @@
               <label>Days Used</label>
               <input name="days_used" type="number" min="1" max="1825" value="{{ form_data.get('days_used', '365') }}" required />
             </div>
-            <div class="field">
-              <label>New Price Device (optional)</label>
-              <input name="normalized_new_price" type="number" step="0.01" value="{{ form_data.get('normalized_new_price', '') }}" />
-            </div>
+
           </div>
           <div class="actions"><button type="submit">Predict</button></div>
         </form>

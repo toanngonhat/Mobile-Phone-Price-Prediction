@@ -11,7 +11,7 @@ APP_SETTINGS_PATH = PACKAGE_DIR / "app_settings.json"
 KAGGLE_DATASET_REF = "ahsan81/used-handheld-device-data"
 KAGGLE_FILE_NAME = "used_device_data.csv"
 
-FEATURE_COLUMNS = ["brand", "ram", "storage", "battery_capacity", "screen_size", "camera_mp"]
+FEATURE_COLUMNS = ["brand", "ram", "storage", "battery_capacity", "screen_size", "camera_mp", "release_year", "days_used"]
 RAW_SCHEMA = [
     "device_brand",
     "os",

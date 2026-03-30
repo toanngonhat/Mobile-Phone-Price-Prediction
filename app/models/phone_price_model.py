@@ -216,6 +216,8 @@ class PhonePriceModel:
 				"battery_capacity": raw_df["battery"].astype(float),
 				"screen_size": raw_df["screen_size"].astype(float) / 2.54,
 				"camera_mp": raw_df["rear_camera_mp"].astype(float),
+				"release_year": raw_df["release_year"].astype(float),
+				"days_used": raw_df["days_used"].astype(float),
 			}
 		)
 		y = np.exp(raw_df["normalized_used_price"].astype(float))
@@ -237,7 +239,7 @@ class PhonePriceModel:
 				(
 					"num",
 					Pipeline(steps=[("imputer", SimpleImputer(strategy="median"))]),
-					["ram", "storage", "battery_capacity", "screen_size", "camera_mp"],
+					["ram", "storage", "battery_capacity", "screen_size", "camera_mp", "release_year", "days_used"],
 				),
 			]
 		)
@@ -324,6 +326,8 @@ class PhonePriceModel:
 					"battery_capacity": float(features["battery_capacity"]),
 					"screen_size": float(features["screen_size"]),
 					"camera_mp": float(features["camera_mp"]),
+					"release_year": float(features["release_year"]),
+					"days_used": float(features["days_used"]),
 				}
 			]
 		)
