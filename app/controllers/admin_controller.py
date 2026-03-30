@@ -21,6 +21,7 @@ from app.config.credentials import (
     USER_ROLE,
 )
 from app.config.settings import APP_SETTINGS_PATH, DATASET_PATH, MODEL_VERSIONS_DIR
+from app.config.settings import RAW_SCHEMA
 from app.models.phone_price_model import PhonePriceModel
 from app.utils.data_utils import dataset_summary
 
@@ -43,6 +44,98 @@ def train_new_model(
 def get_dataset_summary(dataset_path: Path = DATASET_PATH) -> dict:
     df = pd.read_csv(dataset_path)
     return dataset_summary(df)
+
+
+def _normalize_record_frame(raw_df: pd.DataFrame) -> pd.DataFrame:
+    df = raw_df.copy()
+    required_alt = [c for c in RAW_SCHEMA if c not in {"normalized_used_price", "normalized_new_price"}] + ["used_price", "new_price"]
+
+    has_raw_schema = set(RAW_SCHEMA).issubset(df.columns)
+    has_alt_schema = set(required_alt).issubset(df.columns)
+
+    if not has_raw_schema and not has_alt_schema:
+        raise ValueError(
+            "Record columns invalid. Provide either RAW_SCHEMA columns or RAW_SCHEMA with used_price/new_price."
+        )
+
+    if has_alt_schema:
+        df["used_price"] = df["used_price"].astype(float)
+        df["new_price"] = df["new_price"].astype(float)
+        if (df["used_price"] <= 0).any() or (df["new_price"] <= 0).any():
+            raise ValueError("used_price and new_price must be positive numbers")
+        df["normalized_used_price"] = np.log(df["used_price"])
+        df["normalized_new_price"] = np.log(df["new_price"])
+
+    missing = [col for col in RAW_SCHEMA if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
+    numeric_cast = {
+        "screen_size": float,
+        "rear_camera_mp": float,
+        "front_camera_mp": float,
+        "internal_memory": float,
+        "ram": float,
+        "battery": float,
+        "weight": float,
+        "release_year": int,
+        "days_used": int,
+        "normalized_used_price": float,
+        "normalized_new_price": float,
+    }
+    for col, cast_fn in numeric_cast.items():
+        df[col] = df[col].astype(cast_fn)
+
+    df["device_brand"] = df["device_brand"].astype(str)
+    df["os"] = df["os"].astype(str)
+
+    if (np.exp(df["normalized_used_price"]) <= 0).any() or (np.exp(df["normalized_new_price"]) <= 0).any():
+        raise ValueError("normalized prices must map to positive price values")
+
+    return df[RAW_SCHEMA]
+
+
+def add_manual_record(record_data: dict, dataset_path: Path = DATASET_PATH) -> dict:
+    manual_df = pd.DataFrame([record_data])
+    normalized_df = _normalize_record_frame(manual_df)
+
+    if dataset_path.exists():
+        existing_df = pd.read_csv(dataset_path)
+    else:
+        existing_df = pd.DataFrame(columns=RAW_SCHEMA)
+
+    merged_df = pd.concat([existing_df[RAW_SCHEMA], normalized_df], ignore_index=True)
+    dataset_path.parent.mkdir(parents=True, exist_ok=True)
+    merged_df.to_csv(dataset_path, index=False)
+    return {
+        "added_rows": int(len(normalized_df)),
+        "total_rows": int(len(merged_df)),
+    }
+
+
+def import_records_from_csv(file_storage, dataset_path: Path = DATASET_PATH) -> dict:
+    if file_storage is None or not getattr(file_storage, "filename", ""):
+        raise ValueError("CSV file is required")
+
+    incoming_df = pd.read_csv(file_storage)
+    if incoming_df.empty:
+        raise ValueError("CSV file is empty")
+
+    normalized_df = _normalize_record_frame(incoming_df)
+
+    if dataset_path.exists():
+        existing_df = pd.read_csv(dataset_path)
+    else:
+        existing_df = pd.DataFrame(columns=RAW_SCHEMA)
+
+    merged_df = pd.concat([existing_df[RAW_SCHEMA], normalized_df], ignore_index=True)
+    dataset_path.parent.mkdir(parents=True, exist_ok=True)
+    merged_df.to_csv(dataset_path, index=False)
+    return {
+        "added_rows": int(len(normalized_df)),
+        "total_rows": int(len(merged_df)),
+        "filename": file_storage.filename,
+    }
 
 
 def _read_settings() -> dict:

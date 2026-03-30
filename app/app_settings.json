@@ -35,16 +35,6 @@
         "predict"
       ]
     },
-    "ds1": {
-      "password": "ds123456",
-      "role": "data_scientist",
-      "permissions": [
-        "dashboard",
-        "data_visualization",
-        "model_management",
-        "predict"
-      ]
-    },
     "student1": {
       "password": "stud123",
       "role": "user",
@@ -63,6 +53,16 @@
       "password": "rec123",
       "role": "user",
       "permissions": [
+        "predict"
+      ]
+    },
+    "ds1": {
+      "password": "ds123456",
+      "role": "data_scientist",
+      "permissions": [
+        "dashboard",
+        "data_visualization",
+        "model_management",
         "predict"
       ]
     }
