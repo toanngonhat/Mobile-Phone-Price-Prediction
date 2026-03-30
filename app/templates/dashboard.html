@@ -5,28 +5,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Phone Predictor Dashboard</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f4f7fb; margin: 0; color: #243; }
-    .top { background: #fff; padding: 14px 20px; border-bottom: 1px solid #dde5ef; display: flex; justify-content: space-between; align-items: center; }
-    .container { max-width: 980px; margin: 18px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 6px 16px rgba(0,0,0,.06); }
+    :root {
+      --bg: #eef2f7;
+      --card: #ffffff;
+      --ink: #1f2937;
+      --muted: #5c667a;
+      --line: #d6dce7;
+      --brand: #0f5fb9;
+      --brand-soft: #dce9fb;
+      --danger: #b3362f;
+      --ok: #127347;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(circle at 15% 10%, #f9fbff 0%, var(--bg) 45%, #e6ebf3 100%); color: var(--ink); font-family: "Avenir Next", "Segoe UI", sans-serif; }
+    .top { position: sticky; top: 0; z-index: 9; background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); padding: 14px 22px; display: flex; justify-content: space-between; align-items: center; }
+    .container { max-width: 1180px; margin: 18px auto 32px; padding: 0 16px; }
+    .card { background: var(--card); border: 1px solid #e8edf5; border-radius: 14px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 20px rgba(17,24,39,.06); }
+    .hero { padding: 24px; }
+    .hero h1 { margin: 0 0 10px; font-size: 44px; line-height: 1.05; letter-spacing: -.03em; }
+    .hero p { margin: 0; color: var(--muted); font-size: 18px; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
-    .field label { display: block; font-weight: 600; margin-bottom: 6px; }
-    .field input, .field select { width: 100%; box-sizing: border-box; border: 1px solid #ccd4e0; border-radius: 8px; padding: 10px; }
-    .actions { margin-top: 12px; }
-    button { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; background: #0a7; color: #fff; }
-    .danger { background: #c43; }
-    .outline { background: #fff; color: #0a7; border: 1px solid #0a7; }
-    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #e9f8f4; color: #0a7; font-size: 12px; }
-    .result { font-size: 20px; font-weight: 700; color: #084; }
-    .alert { margin-bottom: 12px; padding: 10px; border-radius: 8px; background: #ffe8e8; color: #a11; }
-    pre { white-space: pre-wrap; word-wrap: break-word; background: #f6f8fc; padding: 10px; border-radius: 8px; }
-    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    .field label { display: block; font-weight: 700; margin-bottom: 6px; color: #24324a; }
+    .field input, .field select { width: 100%; border: 1px solid #cdd6e4; border-radius: 8px; padding: 10px; background: #fbfdff; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    button { border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; background: var(--brand); color: #fff; }
+    .outline { background: #fff; color: var(--brand); border: 1px solid var(--brand); }
+    .danger { background: var(--danger); }
+    .pill { display: inline-block; margin-right: 6px; margin-top: 4px; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #eaf0fa; color: #294a73; }
+    .metric { border: 1px solid #dde6f4; border-radius: 12px; padding: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6f9ff 100%); }
+    .metric .k { color: #375276; font-size: 13px; margin-bottom: 8px; font-weight: 600; }
+    .metric .v { font-size: 28px; font-weight: 800; color: #0d2b53; }
+    .nav-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+    .nav-item { border-radius: 12px; border: 1px solid #d3deef; background: #f7faff; padding: 14px; text-align: left; font-weight: 700; color: var(--brand); text-decoration: none; display: block; }
+    .nav-item.active { background: var(--brand-soft); border-color: #b8cff5; }
+    .subtle { color: var(--muted); }
+    .result { font-size: 22px; font-weight: 800; color: var(--ok); }
+    .alert { margin-bottom: 12px; padding: 11px; border-radius: 8px; background: #ffe8e8; color: #8f1d1d; }
+    .success { background: #e8fbef; color: #0f6a41; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e1e7f2; padding: 10px 8px; text-align: left; font-size: 14px; vertical-align: top; }
+    th { color: #304868; background: #f8fbff; }
+    .permission-list { display: flex; gap: 8px; flex-wrap: wrap; }
+    .permission-list label { font-weight: 600; font-size: 13px; color: #314765; }
+    .checkbox-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: #2c3f5f;
+      margin-top: 2px;
+      margin-bottom: 4px;
+    }
+    .checkbox-control input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      accent-color: var(--brand);
+      cursor: pointer;
+    }
+    .checkbox-hint {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    canvas { width: 100% !important; height: 300px !important; }
+    .full { grid-column: 1 / -1; }
+    @media (max-width: 980px) {
+      .nav-grid, .grid-3, .chart-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 760px) {
+      .grid, .grid-3, .nav-grid, .chart-grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 34px; }
+    }
   </style>
 </head>
 <body>
   <div class="top">
     <div>
-      <strong>Dashboard</strong>
+      <strong>Mobile Price Predictor</strong>
       <span class="pill">Role: {{ role }}</span>
       <span class="pill">User: {{ username }}</span>
     </div>
@@ -37,109 +95,417 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert">{{ message }}</div>
+          <div class="alert {{ 'success' if category == 'success' else '' }}">{{ message }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}
 
-    <div class="card">
-      <h3>Predict Phone Price</h3>
-      <form method="post" action="{{ '/data-science' if role == 'data_science' else '/user' }}">
-        {% if role == 'data_science' %}
-          <input type="hidden" name="action" value="predict" />
-        {% endif %}
-        <div class="grid">
-          <div class="field">
-            <label>Brand</label>
-            <select id="branch" name="branch" required>
-              {% for brand in brand_options %}
-                <option value="{{ brand }}" {% if form_data.get('branch', 'iPhone') == brand %}selected{% endif %}>{{ brand }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="field">
-            <label>Model</label>
-            <select id="model" name="model" required></select>
-          </div>
-          <div class="field non-iphone-field">
-            <label>RAM (GB)</label>
-            <input name="ram" type="number" min="1" max="32" value="{{ form_data.get('ram', '') }}" required />
-          </div>
-          <div class="field">
-            <label>ROM/Internal Memory (GB)</label>
-            <input name="storage" type="number" min="8" max="1024" value="{{ form_data.get('storage', '') }}" required />
-          </div>
-          <div class="field">
-            <label>Battery Health (%)</label>
-            <input name="battery_health" value="{{ form_data.get('battery_health', '') }}" />
-          </div>
-          <div class="field">
-            <label>Days Used</label>
-            <input name="days_used" type="number" min="1" max="1825" value="{{ form_data.get('days_used', '365') }}" required />
-          </div>
-          <div class="field">
-            <label>New Price Device (optional)</label>
-            <input name="normalized_new_price" type="number" step="0.01" value="{{ form_data.get('normalized_new_price', '') }}" />
-          </div>
-        </div>
-        <div class="actions"><button type="submit">Predict</button></div>
-      </form>
-      {% if prediction is not none %}
-        <p class="result">Predicted price: ${{ '%.2f'|format(prediction) }}</p>
-      {% endif %}
-    </div>
-
-    {% if role == 'data_science' %}
-      <div class="card">
-        <h3>Train Model</h3>
-        <form method="post" action="/data-science">
-          <input type="hidden" name="action" value="train" />
-          <div class="grid">
-            <div class="field">
-              <label>Records</label>
-              <input name="records" type="number" min="1" value="1000" required />
-            </div>
-            <div class="field">
-              <label>Distribution</label>
-              <select name="distribution">
-                <option value="uniform">uniform</option>
-                <option value="latest_heavy">latest_heavy</option>
-                <option value="promax_heavy">promax_heavy</option>
-              </select>
-            </div>
-          </div>
-          <div class="field"><label><input name="append_only" type="checkbox" /> append_only</label></div>
-          <div class="actions"><button type="submit" class="outline">Train</button></div>
-        </form>
-        {% if training_metrics %}
-          <pre>{{ training_metrics }}</pre>
-        {% endif %}
+    {% if role in ['admin', 'data_scientist'] %}
+      <div class="card hero">
+        <h1>Welcome, {{ username }}!</h1>
+        <p>{{ 'Admin' if role == 'admin' else 'Data Scientist' }} dashboard for mobile phone price prediction system management.</p>
       </div>
 
       <div class="card">
-        <h3>Dataset Stats</h3>
-        <form method="post" action="/data-science">
-          <input type="hidden" name="action" value="stats" />
-          <button type="submit" class="outline">Load Stats</button>
+        <h2>Admin Dashboard</h2>
+        <p class="subtle">Select a management area below:</p>
+        <div class="nav-grid">
+          <a class="nav-item {{ 'active' if admin_section == 'home' else '' }}" href="/admin?section=home">Dashboard Home</a>
+          {% if can_manage_users %}
+            <a class="nav-item {{ 'active' if admin_section == 'users' else '' }}" href="/admin?section=users">User Management</a>
+          {% endif %}
+          <a class="nav-item {{ 'active' if admin_section == 'visualization' else '' }}" href="/admin?section=visualization">Data Visualization</a>
+          <a class="nav-item {{ 'active' if admin_section == 'models' else '' }}" href="/admin?section=models">Model Management</a>
+        </div>
+      </div>
+
+      {% if admin_section == 'home' %}
+        <div class="card">
+          <h3>System Overview and Statistics</h3>
+          <div class="grid-3">
+            <div class="metric">
+              <div class="k">Dataset Records</div>
+              <div class="v">{{ visual_payload.overview.dataset_records or 0 }}</div>
+            </div>
+            <div class="metric">
+              <div class="k">Active Model Version</div>
+              <div class="v">v{{ visual_payload.overview.active_model_version or 'N/A' }}</div>
+            </div>
+            <div class="metric">
+              <div class="k">Total Users</div>
+              <div class="v">{{ visual_payload.overview.total_users or 0 }}</div>
+            </div>
+          </div>
+          <div class="actions">
+            {% if can_manage_users %}
+              <a href="/admin?section=users"><button class="outline">Quick Access: User Management</button></a>
+            {% endif %}
+            <a href="/admin?section=visualization"><button class="outline">Quick Access: Data Visualization</button></a>
+            <a href="/admin?section=models"><button class="outline">Quick Access: Model Management</button></a>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Predict Mobile Price (Admin Preview)</h3>
+          <form method="post" action="/admin">
+            <input type="hidden" name="action" value="predict" />
+            <input type="hidden" name="section" value="home" />
+            <div class="grid">
+              <div class="field">
+                <label>Brand</label>
+                <select id="branch" name="branch" required>
+                  {% for brand in brand_options %}
+                    <option value="{{ brand }}" {% if form_data.get('branch', 'iPhone') == brand %}selected{% endif %}>{{ brand }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label>Model</label>
+                <select id="model" name="model" required></select>
+              </div>
+              <div class="field non-iphone-field">
+                <label>RAM (GB)</label>
+                <input name="ram" type="number" min="1" max="32" value="{{ form_data.get('ram', '') }}" required />
+              </div>
+              <div class="field">
+                <label>ROM/Internal Memory (GB)</label>
+                <input name="storage" type="number" min="8" max="1024" value="{{ form_data.get('storage', '') }}" required />
+              </div>
+              <div class="field">
+                <label>Battery Health (%)</label>
+                <input name="battery_health" value="{{ form_data.get('battery_health', '') }}" />
+              </div>
+              <div class="field">
+                <label>Days Used</label>
+                <input name="days_used" type="number" min="1" max="1825" value="{{ form_data.get('days_used', '365') }}" required />
+              </div>
+              <div class="field">
+                <label>New Price Device (optional)</label>
+                <input name="normalized_new_price" type="number" step="0.01" value="{{ form_data.get('normalized_new_price', '') }}" />
+              </div>
+            </div>
+            <div class="actions"><button type="submit">Predict</button></div>
+          </form>
+          {% if prediction is not none %}
+            <p class="result">Predicted mobile price: ${{ '%.2f'|format(prediction) }}</p>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if admin_section == 'users' and can_manage_users %}
+        <script id="role-permission-options-json" type="application/json">{{ role_permission_options|default({'admin': ['dashboard','user_management','data_visualization','model_management','predict'], 'data_scientist': ['dashboard','data_visualization','model_management','predict'], 'user': ['predict']})|tojson }}</script>
+        <div class="card">
+          <h3>Admin Users</h3>
+          <p class="subtle">View, add, edit, delete users and manage permissions.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Permissions</th>
+                <th>Edit</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in admin_users %}
+                <tr>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.role }}</td>
+                  <td>{{ user.permissions|join(', ') }}</td>
+                  <td>
+                    <form method="post" action="/admin" class="user-edit-form">
+                      <input type="hidden" name="action" value="edit_user" />
+                      <input type="hidden" name="section" value="users" />
+                      <input type="hidden" name="username" value="{{ user.username }}" />
+                      <div class="field">
+                        <select name="role" class="role-select">
+                          <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>admin</option>
+                          <option value="data_scientist" {% if user.role == 'data_scientist' %}selected{% endif %}>data_scientist</option>
+                          <option value="user" {% if user.role == 'user' %}selected{% endif %}>user</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <input name="password" placeholder="New password (optional)" />
+                      </div>
+                      <div class="permission-list role-permission-list">
+                        {% for permission in permission_options %}
+                          <label data-permission-item="{{ permission }}"><input type="checkbox" name="permissions" value="{{ permission }}" {% if permission in user.permissions %}checked{% endif %} />{{ permission }}</label>
+                        {% endfor %}
+                      </div>
+                      <div class="actions"><button class="outline" type="submit">Save</button></div>
+                    </form>
+                  </td>
+                  <td>
+                    <form method="post" action="/admin" onsubmit="return confirm('Delete user {{ user.username }}?');">
+                      <input type="hidden" name="action" value="delete_user" />
+                      <input type="hidden" name="section" value="users" />
+                      <input type="hidden" name="username" value="{{ user.username }}" />
+                      <button class="danger" type="submit">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Add New User</h3>
+          <form method="post" action="/admin" class="user-add-form">
+            <input type="hidden" name="action" value="add_user" />
+            <input type="hidden" name="section" value="users" />
+            <div class="grid">
+              <div class="field">
+                <label>Username</label>
+                <input name="username" required />
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <input name="password" type="password" required />
+              </div>
+              <div class="field">
+                <label>Role</label>
+                <select name="role" class="role-select">
+                  <option value="user">user</option>
+                  <option value="data_scientist">data_scientist</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+            </div>
+            <div class="permission-list role-permission-list">
+              {% for permission in permission_options %}
+                <label data-permission-item="{{ permission }}"><input type="checkbox" name="permissions" value="{{ permission }}" checked />{{ permission }}</label>
+              {% endfor %}
+            </div>
+            <div class="actions"><button type="submit">Add User</button></div>
+          </form>
+        </div>
+      {% endif %}
+
+      {% if admin_section == 'visualization' %}
+        <div class="card">
+          <h3>Data Visualization</h3>
+          <p class="subtle">Feature importance, model performance, mobile price distribution, and days-used correlation.</p>
+          <div class="chart-grid">
+            <div class="card"><canvas id="featureImportanceChart"></canvas></div>
+            <div class="card"><canvas id="modelPerformanceChart"></canvas></div>
+            <div class="card"><canvas id="priceDistributionChart"></canvas></div>
+            <div class="card"><canvas id="usagePriceChart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Dataset Stats</h3>
+          <form method="post" action="/admin">
+            <input type="hidden" name="action" value="stats" />
+            <input type="hidden" name="section" value="visualization" />
+            <button type="submit" class="outline">Load Latest Stats</button>
+          </form>
+          {% set stats_payload = dataset_stats if dataset_stats else visual_payload.dataset_summary %}
+          {% if stats_payload %}
+            <table>
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Total Rows</td>
+                  <td>{{ stats_payload.get('rows', 0) }}</td>
+                </tr>
+                <tr>
+                  <td>Total Columns</td>
+                  <td>{{ stats_payload.get('columns', [])|length }}</td>
+                </tr>
+                <tr>
+                  <td>Unique Brands</td>
+                  <td>{{ stats_payload.get('brand_count', 0) }}</td>
+                </tr>
+                <tr>
+                  <td>Release Year Range</td>
+                  <td>
+                    {{ stats_payload.get('year_range', {}).get('min', 'N/A') }}
+                    -
+                    {{ stats_payload.get('year_range', {}).get('max', 'N/A') }}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Contains 4G Column</td>
+                  <td>{{ 'Yes' if stats_payload.get('contains_4g') else 'No' }}</td>
+                </tr>
+                <tr>
+                  <td>Contains 5G Column</td>
+                  <td>{{ 'Yes' if stats_payload.get('contains_5g') else 'No' }}</td>
+                </tr>
+                <tr>
+                  <td>Column Names</td>
+                  <td>{{ stats_payload.get('columns', [])|join(', ') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          {% else %}
+            <p class="subtle">No dataset stats available yet. Click "Load Latest Stats" to refresh.</p>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if admin_section == 'models' %}
+        <div class="card">
+          <h3>Model Versions</h3>
+          <p class="subtle">View all versions, switch active model, inspect metadata, and delete outdated models.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Metrics</th>
+                <th>Parameters</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for version in model_versions.versions %}
+                <tr>
+                  <td>{{ version.name }}</td>
+                  <td>{{ 'Active' if version.is_active else 'Inactive' }}</td>
+                  <td>R2={{ version.r2 }} | RMSE={{ version.rmse }} | MAE={{ version.mae }}</td>
+                  <td>
+                    <div>Target: {{ version.target }}</div>
+                    <div>Features: {{ version.features|join(', ') }}</div>
+                    <div>Records: {{ version.records }}</div>
+                  </td>
+                  <td>
+                    <div class="actions">
+                      <form method="post" action="/admin">
+                        <input type="hidden" name="action" value="set_active_model" />
+                        <input type="hidden" name="section" value="models" />
+                        <input type="hidden" name="version" value="{{ version.version }}" />
+                        <button class="outline" type="submit">Set Active</button>
+                      </form>
+                      <form method="post" action="/admin" onsubmit="return confirm('Delete {{ version.name }}?');">
+                        <input type="hidden" name="action" value="delete_model" />
+                        <input type="hidden" name="section" value="models" />
+                        <input type="hidden" name="version" value="{{ version.version }}" />
+                        <button class="danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Train New Model</h3>
+          <form method="post" action="/admin">
+            <input type="hidden" name="action" value="train" />
+            <input type="hidden" name="section" value="models" />
+            <div class="grid">
+              <div class="field">
+                <label>Records</label>
+                <input name="records" type="number" min="1" value="1000" required />
+              </div>
+              <div class="field">
+                <label>Distribution Profile</label>
+                <select name="distribution">
+                  <option value="uniform">uniform</option>
+                  <option value="latest_heavy">latest_heavy</option>
+                  <option value="promax_heavy">promax_heavy</option>
+                </select>
+              </div>
+            </div>
+            <label class="checkbox-control" for="append_only_train">
+              <input id="append_only_train" name="append_only" type="checkbox" />
+              Append to existing dataset only
+            </label>
+            <p class="checkbox-hint">Keep current dataset and only add newly generated records before training.</p>
+            <div class="actions"><button type="submit">Train Model</button></div>
+          </form>
+          {% if training_metrics %}
+            <pre>{{ training_metrics }}</pre>
+          {% endif %}
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div class="card hero">
+        <h1>Welcome, {{ username }}!</h1>
+        <p>Provide your device specs to predict current mobile resale price.</p>
+      </div>
+
+      <div class="card">
+        <h3>Predict Mobile Price</h3>
+        <form method="post" action="/user">
+          <div class="grid">
+            <div class="field">
+              <label>Brand</label>
+              <select id="branch" name="branch" required>
+                {% for brand in brand_options %}
+                  <option value="{{ brand }}" {% if form_data.get('branch', 'iPhone') == brand %}selected{% endif %}>{{ brand }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Model</label>
+              <select id="model" name="model" required></select>
+            </div>
+            <div class="field non-iphone-field">
+              <label>RAM (GB)</label>
+              <input name="ram" type="number" min="1" max="32" value="{{ form_data.get('ram', '') }}" required />
+            </div>
+            <div class="field">
+              <label>ROM/Internal Memory (GB)</label>
+              <input name="storage" type="number" min="8" max="1024" value="{{ form_data.get('storage', '') }}" required />
+            </div>
+            <div class="field">
+              <label>Battery Health (%)</label>
+              <input name="battery_health" value="{{ form_data.get('battery_health', '') }}" />
+            </div>
+            <div class="field">
+              <label>Days Used</label>
+              <input name="days_used" type="number" min="1" max="1825" value="{{ form_data.get('days_used', '365') }}" required />
+            </div>
+            <div class="field">
+              <label>New Price Device (optional)</label>
+              <input name="normalized_new_price" type="number" step="0.01" value="{{ form_data.get('normalized_new_price', '') }}" />
+            </div>
+          </div>
+          <div class="actions"><button type="submit">Predict</button></div>
         </form>
-        {% if dataset_stats %}
-          <pre>{{ dataset_stats }}</pre>
+        {% if prediction is not none %}
+          <p class="result">Predicted mobile price: ${{ '%.2f'|format(prediction) }}</p>
         {% endif %}
       </div>
     {% endif %}
   </div>
 
+  <script id="model-options-json" type="application/json">{{ model_options_by_brand|tojson }}</script>
+  <script id="selected-model-json" type="application/json">{{ form_data.get('model', '')|tojson }}</script>
+  <script id="feature-importance-json" type="application/json">{{ visual_payload.feature_importance|default({'labels': [], 'values': []})|tojson }}</script>
+  <script id="model-performance-json" type="application/json">{{ visual_payload.model_performance|default({'labels': [], 'r2': [], 'rmse': [], 'mae': []})|tojson }}</script>
+  <script id="price-distribution-json" type="application/json">{{ visual_payload.price_distribution|default({'bins': [], 'counts': []})|tojson }}</script>
+  <script id="usage-price-json" type="application/json">{{ visual_payload.usage_price|default({'x': [], 'y': []})|tojson }}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script>
-    const modelOptionsByBrand = {{ model_options_by_brand|tojson }};
-    const selectedModel = {{ form_data.get('model', '')|tojson }};
+    const modelOptionsByBrand = JSON.parse(document.getElementById('model-options-json').textContent || '{}');
+    const selectedModel = JSON.parse(document.getElementById('selected-model-json').textContent || '""');
 
     function syncModelOptions() {
-      const brand = document.getElementById('branch').value;
-      const modelSelect = document.getElementById('model');
+      const branchNode = document.getElementById('branch');
+      const modelNode = document.getElementById('model');
+      if (!branchNode || !modelNode) {
+        return;
+      }
+      const brand = branchNode.value;
       const models = modelOptionsByBrand[brand] || [];
       const isIphone = (brand || '').trim().toLowerCase() === 'iphone';
 
-      modelSelect.innerHTML = '';
+      modelNode.innerHTML = '';
       models.forEach((modelName) => {
         const option = document.createElement('option');
         option.value = modelName;
@@ -147,7 +513,7 @@
         if (selectedModel && modelName.toLowerCase() === selectedModel.toLowerCase()) {
           option.selected = true;
         }
-        modelSelect.appendChild(option);
+        modelNode.appendChild(option);
       });
 
       document.querySelectorAll('.non-iphone-field').forEach((el) => {
@@ -158,8 +524,124 @@
       });
     }
 
-    document.getElementById('branch').addEventListener('change', syncModelOptions);
-    syncModelOptions();
+    const branchElement = document.getElementById('branch');
+    if (branchElement) {
+      branchElement.addEventListener('change', syncModelOptions);
+      syncModelOptions();
+    }
+
+    const featureData = JSON.parse(document.getElementById('feature-importance-json').textContent || '{"labels":[],"values":[]}');
+    const perfData = JSON.parse(document.getElementById('model-performance-json').textContent || '{"labels":[],"r2":[],"rmse":[],"mae":[]}');
+    const distributionData = JSON.parse(document.getElementById('price-distribution-json').textContent || '{"bins":[],"counts":[]}');
+    const usageData = JSON.parse(document.getElementById('usage-price-json').textContent || '{"x":[],"y":[]}');
+    const rolePermissionOptionsNode = document.getElementById('role-permission-options-json');
+    const rolePermissionOptions = rolePermissionOptionsNode
+      ? JSON.parse(rolePermissionOptionsNode.textContent || '{}')
+      : {};
+
+    function syncPermissionUIForForm(formNode) {
+      if (!formNode) {
+        return;
+      }
+      const roleSelect = formNode.querySelector('.role-select');
+      const permissionLabels = formNode.querySelectorAll('[data-permission-item]');
+      if (!roleSelect || permissionLabels.length === 0) {
+        return;
+      }
+      const selectedRole = roleSelect.value;
+      const allowedPermissions = rolePermissionOptions[selectedRole] || [];
+      permissionLabels.forEach((labelNode) => {
+        const permissionName = labelNode.getAttribute('data-permission-item');
+        const checkbox = labelNode.querySelector('input[type="checkbox"]');
+        const allowed = allowedPermissions.includes(permissionName);
+        labelNode.style.display = allowed ? 'inline-flex' : 'none';
+        if (checkbox) {
+          checkbox.disabled = !allowed;
+          if (!allowed) {
+            checkbox.checked = false;
+          }
+        }
+      });
+    }
+
+    function bindRolePermissionSync() {
+      const roleForms = document.querySelectorAll('.user-edit-form, .user-add-form');
+      roleForms.forEach((formNode) => {
+        const roleSelect = formNode.querySelector('.role-select');
+        if (roleSelect) {
+          roleSelect.addEventListener('change', () => syncPermissionUIForForm(formNode));
+        }
+        syncPermissionUIForForm(formNode);
+      });
+    }
+
+    function buildCharts() {
+      if (typeof Chart === 'undefined') {
+        return;
+      }
+
+      const fiCtx = document.getElementById('featureImportanceChart');
+      if (fiCtx) {
+        new Chart(fiCtx, {
+          type: 'bar',
+          data: {
+            labels: featureData.labels,
+            datasets: [{ label: 'Feature Importance', data: featureData.values, backgroundColor: '#0f5fb9' }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      const perfCtx = document.getElementById('modelPerformanceChart');
+      if (perfCtx) {
+        new Chart(perfCtx, {
+          type: 'line',
+          data: {
+            labels: perfData.labels,
+            datasets: [
+              { label: 'R2', data: perfData.r2, borderColor: '#127347', tension: 0.2 },
+              { label: 'RMSE', data: perfData.rmse, borderColor: '#b85a00', tension: 0.2 },
+              { label: 'MAE', data: perfData.mae, borderColor: '#9a2a2a', tension: 0.2 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      const distCtx = document.getElementById('priceDistributionChart');
+      if (distCtx) {
+        new Chart(distCtx, {
+          type: 'bar',
+          data: {
+            labels: distributionData.bins,
+            datasets: [{ label: 'Mobile Price Distribution', data: distributionData.counts, backgroundColor: '#3662c8' }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      const usageCtx = document.getElementById('usagePriceChart');
+      if (usageCtx) {
+        const scatterData = usageData.x.map((xValue, idx) => ({ x: xValue, y: usageData.y[idx] }));
+        new Chart(usageCtx, {
+          type: 'scatter',
+          data: {
+            datasets: [{ label: 'Days Used vs Price', data: scatterData, pointRadius: 3, backgroundColor: '#0a7f96' }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { title: { display: true, text: 'Days Used' } },
+              y: { title: { display: true, text: 'Predicted Mobile Price ($)' } }
+            }
+          }
+        });
+      }
+    }
+
+    buildCharts();
+    bindRolePermissionSync();
   </script>
 </body>
 </html>

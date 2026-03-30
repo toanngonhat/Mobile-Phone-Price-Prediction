@@ -4,10 +4,16 @@ Mobile phone price prediction system using Random Forest on localhost web UI.
 
 ## Features
 
-### Data Science Role
+### Admin Role
 - Train Random Forest model from Kaggle + synthetic iPhone data
-- View dataset statistics
+- View dataset statistics and visualization charts
+- Manage users, permissions, and model versions
 - Predict phone price with model_branch templates
+
+### Data Scientist Role
+- Same analytics and model-management capabilities as Admin
+- No access to User Management
+- Can train models, view visualizations, switch model versions, and predict prices
 
 ### User Role
 - Input mobile phone specifications
@@ -29,6 +35,9 @@ UI behavior:
 - Username: `admin1`, Password: `admin123`
 - Username: `admin2`, Password: `admin456`
 - Username: `admin3`, Password: `admin789`
+
+### Data Scientist Credentials
+- Username: `ds1`, Password: `ds123456`
 
 ### User Credentials
 - Username: `student1`, Password: `stud123`

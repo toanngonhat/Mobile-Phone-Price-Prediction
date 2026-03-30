@@ -1,4 +1,70 @@
 {
-  "active_model_version": 3,
-  "last_training_time": "2026-03-29T16:45:20.768482+00:00"
+  "active_model_version": 4,
+  "last_training_time": "2026-03-30T04:18:32.412524+00:00",
+  "managed_users": {
+    "admin1": {
+      "password": "admin123",
+      "role": "admin",
+      "permissions": [
+        "dashboard",
+        "user_management",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "admin2": {
+      "password": "admin456",
+      "role": "admin",
+      "permissions": [
+        "dashboard",
+        "user_management",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "admin3": {
+      "password": "admin789",
+      "role": "admin",
+      "permissions": [
+        "dashboard",
+        "user_management",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "student1": {
+      "password": "stud123",
+      "role": "user",
+      "permissions": [
+        "predict"
+      ]
+    },
+    "engineer1": {
+      "password": "eng123",
+      "role": "user",
+      "permissions": [
+        "predict"
+      ]
+    },
+    "recruiter1": {
+      "password": "rec123",
+      "role": "user",
+      "permissions": [
+        "predict"
+      ]
+    },
+    "ds1": {
+      "password": "ds123456",
+      "role": "data_scientist",
+      "permissions": [
+        "dashboard",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    }
+  }
 }

@@ -3,11 +3,26 @@ from __future__ import annotations
 import os
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
-import pandas as pd
 
+from app.config.credentials import (
+    ADMIN_PERMISSION_OPTIONS,
+    ADMIN_ROLE,
+    DATA_SCIENTIST_PERMISSION_OPTIONS,
+    DATA_SCIENTIST_ROLE,
+)
 from app.config.device_catalog import DEVICE_MODEL_BRANCH_MAP
-from app.config.settings import DATASET_PATH
-from app.controllers.admin_controller import get_dataset_summary, train_new_model
+from app.controllers.admin_controller import (
+    add_user,
+    delete_model_version,
+    delete_user,
+    get_admin_visualization_payload,
+    get_dataset_summary,
+    list_model_versions,
+    list_users,
+    set_active_model_version,
+    train_new_model,
+    update_user,
+)
 from app.controllers.auth_controller import validate_login
 from app.controllers.user_controller import predict_price
 
@@ -33,14 +48,6 @@ def create_app() -> Flask:
 
     def _parse_int(raw: str, field: str, minimum: int | None = None, maximum: int | None = None) -> int:
         value = int(raw)
-        if minimum is not None and value < minimum:
-            raise ValueError(f"{field} must be >= {minimum}")
-        if maximum is not None and value > maximum:
-            raise ValueError(f"{field} must be <= {maximum}")
-        return value
-
-    def _parse_float(raw: str, field: str, minimum: float | None = None, maximum: float | None = None) -> float:
-        value = float(raw)
         if minimum is not None and value < minimum:
             raise ValueError(f"{field} must be >= {minimum}")
         if maximum is not None and value > maximum:
@@ -113,11 +120,12 @@ def create_app() -> Flask:
         }
         return features, ui_info
 
-    def _require_role(*roles: str):
+    def _require_role(*roles: str) -> bool:
         role = session.get("role")
-        if role not in roles:
-            return False
-        return True
+        return role in roles
+
+    def _is_management_role() -> bool:
+        return _require_role(ADMIN_ROLE, DATA_SCIENTIST_ROLE)
 
     @app.route("/", methods=["GET", "POST"])
     def login():
@@ -130,12 +138,12 @@ def create_app() -> Flask:
                 return render_template("login.html")
             session["username"] = username
             session["role"] = role
-            if role == "data_science":
-                return redirect(url_for("data_science"))
+            if role in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+                return redirect(url_for("admin"))
             return redirect(url_for("user"))
 
-        if session.get("role") == "data_science":
-            return redirect(url_for("data_science"))
+        if session.get("role") in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+            return redirect(url_for("admin"))
         if session.get("role") == "user":
             return redirect(url_for("user"))
         return render_template("login.html")
@@ -178,12 +186,20 @@ def create_app() -> Flask:
             form_data=form_data,
             training_metrics=None,
             dataset_stats=None,
+            admin_section="home",
+            admin_users=[],
+            model_versions={"active_version": None, "versions": []},
+            visual_payload={},
+            permission_options=ADMIN_PERMISSION_OPTIONS,
         )
 
-    @app.route("/data-science", methods=["GET", "POST"])
-    def data_science():
-        if not _require_role("data_science"):
+    @app.route("/admin", methods=["GET", "POST"])
+    def admin():
+        if not _is_management_role():
             return redirect(url_for("login"))
+
+        current_role = session.get("role", "")
+        can_manage_users = current_role == ADMIN_ROLE
 
         prediction = None
         features = None
@@ -194,9 +210,18 @@ def create_app() -> Flask:
             "branch": "iPhone",
             "days_used": "365",
         }
+        admin_section = request.args.get("section", "home")
+        if admin_section == "users" and not can_manage_users:
+            flash("Data scientist role does not have access to user management", "error")
+            admin_section = "home"
 
         if request.method == "POST":
             action = request.form.get("action", "predict")
+            section_from_post = request.form.get("section", "")
+            if section_from_post:
+                admin_section = section_from_post
+            if admin_section == "users" and not can_manage_users:
+                admin_section = "home"
             if action == "predict":
                 form_data = request.form.to_dict(flat=True)
             try:
@@ -210,12 +235,50 @@ def create_app() -> Flask:
                     training_metrics = train_new_model(records=records, distribution=distribution, append_only=append_only)
                 elif action == "stats":
                     dataset_stats = get_dataset_summary()
+                elif action == "add_user":
+                    if not can_manage_users:
+                        raise PermissionError("Data scientist role does not have access to user management")
+                    permissions = request.form.getlist("permissions")
+                    add_user(
+                        username=request.form.get("username", ""),
+                        password=request.form.get("password", ""),
+                        role=request.form.get("role", "user"),
+                        permissions=permissions,
+                    )
+                    flash("User created successfully", "success")
+                elif action == "edit_user":
+                    if not can_manage_users:
+                        raise PermissionError("Data scientist role does not have access to user management")
+                    permissions = request.form.getlist("permissions")
+                    update_user(
+                        username=request.form.get("username", ""),
+                        role=request.form.get("role", "user"),
+                        password=request.form.get("password") or None,
+                        permissions=permissions,
+                    )
+                    flash("User updated successfully", "success")
+                elif action == "delete_user":
+                    if not can_manage_users:
+                        raise PermissionError("Data scientist role does not have access to user management")
+                    target_username = request.form.get("username", "")
+                    if target_username == session.get("username"):
+                        raise ValueError("You cannot delete the currently logged-in admin")
+                    delete_user(username=target_username)
+                    flash("User deleted successfully", "success")
+                elif action == "set_active_model":
+                    version = _parse_int(request.form.get("version", ""), "version", 1)
+                    set_active_model_version(version)
+                    flash(f"Active model switched to v{version}", "success")
+                elif action == "delete_model":
+                    version = _parse_int(request.form.get("version", ""), "version", 1)
+                    delete_model_version(version)
+                    flash(f"Deleted model version v{version}", "success")
             except Exception as exc:
                 flash(str(exc), "error")
 
         return render_template(
             "dashboard.html",
-            role="data_science",
+            role=current_role,
             username=session.get("username"),
             brand_options=_allowed_brands(),
             model_options_by_brand=_brand_model_map(),
@@ -225,7 +288,26 @@ def create_app() -> Flask:
             form_data=form_data,
             training_metrics=training_metrics,
             dataset_stats=dataset_stats,
+            admin_section=admin_section,
+            admin_users=list_users(),
+            model_versions=list_model_versions(),
+            visual_payload=get_admin_visualization_payload(),
+            permission_options=ADMIN_PERMISSION_OPTIONS,
+            role_permission_options={
+                ADMIN_ROLE: ADMIN_PERMISSION_OPTIONS,
+                DATA_SCIENTIST_ROLE: DATA_SCIENTIST_PERMISSION_OPTIONS,
+                "user": ["predict"],
+            },
+            can_manage_users=can_manage_users,
         )
+
+    @app.route("/data-scientist", methods=["GET", "POST"])
+    def data_scientist():
+        return redirect(url_for("admin"))
+
+    @app.route("/data-science", methods=["GET", "POST"])
+    def data_science():
+        return redirect(url_for("admin"))
 
     return app
 
