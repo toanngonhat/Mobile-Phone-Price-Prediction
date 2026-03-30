@@ -429,6 +429,47 @@
             <pre>{{ training_metrics }}</pre>
           {% endif %}
         </div>
+
+        <div class="card">
+          <h3>Add Single Record (Manual)</h3>
+          <p class="subtle">Add one raw training row. Prices are entered as normal values and converted automatically.</p>
+          <form method="post" action="/admin">
+            <input type="hidden" name="action" value="add_manual_record" />
+            <input type="hidden" name="section" value="models" />
+            <div class="grid">
+              <div class="field"><label>Device Brand</label><input name="device_brand" value="{{ manual_record_form.get('device_brand', 'Apple') }}" required /></div>
+              <div class="field"><label>OS</label><input name="os" value="{{ manual_record_form.get('os', 'iOS') }}" required /></div>
+              <div class="field"><label>Screen Size</label><input name="screen_size" type="number" step="0.01" value="{{ manual_record_form.get('screen_size', '6.1') }}" required /></div>
+              <div class="field"><label>Rear Camera MP</label><input name="rear_camera_mp" type="number" step="0.1" value="{{ manual_record_form.get('rear_camera_mp', '12') }}" required /></div>
+              <div class="field"><label>Front Camera MP</label><input name="front_camera_mp" type="number" step="0.1" value="{{ manual_record_form.get('front_camera_mp', '12') }}" required /></div>
+              <div class="field"><label>Internal Memory</label><input name="internal_memory" type="number" step="1" value="{{ manual_record_form.get('internal_memory', '128') }}" required /></div>
+              <div class="field"><label>RAM</label><input name="ram" type="number" step="1" value="{{ manual_record_form.get('ram', '6') }}" required /></div>
+              <div class="field"><label>Battery</label><input name="battery" type="number" step="1" value="{{ manual_record_form.get('battery', '3200') }}" required /></div>
+              <div class="field"><label>Weight</label><input name="weight" type="number" step="0.1" value="{{ manual_record_form.get('weight', '190') }}" required /></div>
+              <div class="field"><label>Release Year</label><input name="release_year" type="number" step="1" value="{{ manual_record_form.get('release_year', '2022') }}" required /></div>
+              <div class="field"><label>Days Used</label><input name="days_used" type="number" step="1" value="{{ manual_record_form.get('days_used', '365') }}" required /></div>
+              <div class="field"><label>Used Price (raw)</label><input name="used_price" type="number" step="0.01" value="{{ manual_record_form.get('used_price', '650') }}" required /></div>
+              <div class="field"><label>New Price (raw)</label><input name="new_price" type="number" step="0.01" value="{{ manual_record_form.get('new_price', '999') }}" required /></div>
+            </div>
+            <div class="actions"><button type="submit" class="outline">Add Record</button></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Import Multiple Records (CSV)</h3>
+          <p class="subtle">Upload CSV with either:</p>
+          <p class="subtle">1) Full schema including normalized_used_price, normalized_new_price</p>
+          <p class="subtle">2) Same schema but with used_price, new_price (auto-converted)</p>
+          <form method="post" action="/admin" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="import_csv_records" />
+            <input type="hidden" name="section" value="models" />
+            <div class="field">
+              <label>CSV File</label>
+              <input name="records_csv" type="file" accept=".csv" required />
+            </div>
+            <div class="actions"><button type="submit" class="outline">Import CSV</button></div>
+          </form>
+        </div>
       {% endif %}
 
     {% else %}

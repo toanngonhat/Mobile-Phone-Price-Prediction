@@ -12,11 +12,13 @@ from app.config.credentials import (
 )
 from app.config.device_catalog import DEVICE_MODEL_BRANCH_MAP
 from app.controllers.admin_controller import (
+    add_manual_record,
     add_user,
     delete_model_version,
     delete_user,
     get_admin_visualization_payload,
     get_dataset_summary,
+    import_records_from_csv,
     list_model_versions,
     list_users,
     set_active_model_version,
@@ -210,6 +212,21 @@ def create_app() -> Flask:
             "branch": "iPhone",
             "days_used": "365",
         }
+        manual_record_form: dict[str, str] = {
+            "device_brand": "Apple",
+            "os": "iOS",
+            "screen_size": "6.1",
+            "rear_camera_mp": "12",
+            "front_camera_mp": "12",
+            "internal_memory": "128",
+            "ram": "6",
+            "battery": "3200",
+            "weight": "190",
+            "release_year": "2022",
+            "days_used": "365",
+            "used_price": "650",
+            "new_price": "999",
+        }
         admin_section = request.args.get("section", "home")
         if admin_section == "users" and not can_manage_users:
             flash("Data scientist role does not have access to user management", "error")
@@ -273,6 +290,20 @@ def create_app() -> Flask:
                     version = _parse_int(request.form.get("version", ""), "version", 1)
                     delete_model_version(version)
                     flash(f"Deleted model version v{version}", "success")
+                elif action == "add_manual_record":
+                    manual_record_form = request.form.to_dict(flat=True)
+                    result = add_manual_record(manual_record_form)
+                    flash(
+                        f"Added {result['added_rows']} record. Dataset now has {result['total_rows']} rows.",
+                        "success",
+                    )
+                elif action == "import_csv_records":
+                    csv_file = request.files.get("records_csv")
+                    result = import_records_from_csv(csv_file)
+                    flash(
+                        f"Imported {result['added_rows']} records from {result['filename']}. Dataset now has {result['total_rows']} rows.",
+                        "success",
+                    )
             except Exception as exc:
                 flash(str(exc), "error")
 
@@ -299,6 +330,7 @@ def create_app() -> Flask:
                 "user": ["predict"],
             },
             can_manage_users=can_manage_users,
+            manual_record_form=manual_record_form,
         )
 
     @app.route("/data-scientist", methods=["GET", "POST"])
