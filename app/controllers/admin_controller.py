@@ -1,11 +1,26 @@
-"""Admin controller for dataset build and model training workflows."""
+"""Admin controller for dashboard, users, visualizations, and model management."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import shutil
 
+import joblib
+import numpy as np
 import pandas as pd
 
-from app.config.settings import DATASET_PATH
+from app.config.credentials import (
+    ADMIN_CREDENTIALS,
+    ADMIN_PERMISSION_OPTIONS,
+    ADMIN_ROLE,
+    DATA_SCIENTIST_CREDENTIALS,
+    DATA_SCIENTIST_PERMISSION_OPTIONS,
+    DATA_SCIENTIST_ROLE,
+    USER_CREDENTIALS,
+    USER_PERMISSION_OPTIONS,
+    USER_ROLE,
+)
+from app.config.settings import APP_SETTINGS_PATH, DATASET_PATH, MODEL_VERSIONS_DIR
 from app.models.phone_price_model import PhonePriceModel
 from app.utils.data_utils import dataset_summary
 
@@ -28,3 +43,291 @@ def train_new_model(
 def get_dataset_summary(dataset_path: Path = DATASET_PATH) -> dict:
     df = pd.read_csv(dataset_path)
     return dataset_summary(df)
+
+
+def _read_settings() -> dict:
+    if not APP_SETTINGS_PATH.exists():
+        return {}
+    with open(APP_SETTINGS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _write_settings(settings: dict) -> None:
+    APP_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(APP_SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
+
+
+def _default_managed_users() -> dict[str, dict]:
+    managed_users: dict[str, dict] = {}
+    for username, password in ADMIN_CREDENTIALS.items():
+        managed_users[username] = {
+            "password": password,
+            "role": ADMIN_ROLE,
+            "permissions": list(ADMIN_PERMISSION_OPTIONS),
+        }
+    for username, password in DATA_SCIENTIST_CREDENTIALS.items():
+        managed_users[username] = {
+            "password": password,
+            "role": DATA_SCIENTIST_ROLE,
+            "permissions": list(DATA_SCIENTIST_PERMISSION_OPTIONS),
+        }
+    for username, password in USER_CREDENTIALS.items():
+        managed_users[username] = {
+            "password": password,
+            "role": USER_ROLE,
+            "permissions": list(USER_PERMISSION_OPTIONS),
+        }
+    return managed_users
+
+
+def _default_permissions_for_role(role: str) -> list[str]:
+    if role == ADMIN_ROLE:
+        return list(ADMIN_PERMISSION_OPTIONS)
+    if role == DATA_SCIENTIST_ROLE:
+        return list(DATA_SCIENTIST_PERMISSION_OPTIONS)
+    return list(USER_PERMISSION_OPTIONS)
+
+
+def _normalize_permissions(role: str, permissions: list[str] | None) -> list[str]:
+    allowed = set(_default_permissions_for_role(role))
+    if permissions is None:
+        return sorted(allowed)
+    normalized = [str(p) for p in permissions if str(p) in allowed]
+    if not normalized:
+        return sorted(allowed)
+    return sorted(set(normalized))
+
+
+def _ensure_managed_users() -> dict:
+    settings = _read_settings()
+    defaults = _default_managed_users()
+    managed_users = settings.get("managed_users")
+    if isinstance(managed_users, dict) and managed_users:
+        dirty = False
+        for username, profile in defaults.items():
+            if username not in managed_users:
+                managed_users[username] = profile
+                dirty = True
+        if dirty:
+            settings["managed_users"] = managed_users
+            _write_settings(settings)
+        return settings
+
+    settings["managed_users"] = defaults
+    settings.setdefault("active_model_version", None)
+    settings.setdefault("last_training_time", None)
+    _write_settings(settings)
+    return settings
+
+
+def list_users() -> list[dict]:
+    settings = _ensure_managed_users()
+    users = settings.get("managed_users", {})
+    default_usernames = set(ADMIN_CREDENTIALS.keys()) | set(DATA_SCIENTIST_CREDENTIALS.keys()) | set(USER_CREDENTIALS.keys())
+
+    result: list[dict] = []
+    for username, info in sorted(users.items(), key=lambda item: item[0].lower()):
+        permissions = info.get("permissions") or []
+        if not isinstance(permissions, list):
+            permissions = []
+        result.append(
+            {
+                "username": username,
+                "role": info.get("role", USER_ROLE),
+                "permissions": sorted(set(str(p) for p in permissions)),
+                "is_default": username in default_usernames,
+            }
+        )
+    return result
+
+
+def add_user(username: str, password: str, role: str, permissions: list[str] | None = None) -> None:
+    username = username.strip()
+    if not username:
+        raise ValueError("Username is required")
+    if len(password) < 6:
+        raise ValueError("Password must have at least 6 characters")
+
+    role = role.strip().lower() if role else USER_ROLE
+    if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE, USER_ROLE}:
+        raise ValueError("Role must be admin, data_scientist or user")
+
+    settings = _ensure_managed_users()
+    users = settings.get("managed_users", {})
+    if username in users:
+        raise ValueError(f"User '{username}' already exists")
+
+    users[username] = {
+        "password": password,
+        "role": role,
+        "permissions": _normalize_permissions(role, permissions),
+    }
+    settings["managed_users"] = users
+    _write_settings(settings)
+
+
+def update_user(
+    username: str,
+    role: str | None = None,
+    password: str | None = None,
+    permissions: list[str] | None = None,
+) -> None:
+    settings = _ensure_managed_users()
+    users = settings.get("managed_users", {})
+    info = users.get(username)
+    if not info:
+        raise ValueError(f"User '{username}' not found")
+
+    if role:
+        role = role.strip().lower()
+        if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE, USER_ROLE}:
+            raise ValueError("Role must be admin, data_scientist or user")
+        info["role"] = role
+
+    if password is not None and password.strip() != "":
+        if len(password) < 6:
+            raise ValueError("Password must have at least 6 characters")
+        info["password"] = password
+
+    if permissions is not None:
+        info["permissions"] = _normalize_permissions(info.get("role", USER_ROLE), permissions)
+    elif role:
+        info["permissions"] = _normalize_permissions(info.get("role", USER_ROLE), None)
+
+    users[username] = info
+    settings["managed_users"] = users
+    _write_settings(settings)
+
+
+def delete_user(username: str) -> None:
+    settings = _ensure_managed_users()
+    users = settings.get("managed_users", {})
+    if username not in users:
+        raise ValueError(f"User '{username}' not found")
+
+    admin_count = sum(1 for item in users.values() if item.get("role") == ADMIN_ROLE)
+    if users[username].get("role") == ADMIN_ROLE and admin_count <= 1:
+        raise ValueError("Cannot delete the last admin account")
+
+    users.pop(username)
+    settings["managed_users"] = users
+    _write_settings(settings)
+
+
+def list_model_versions() -> dict:
+    model = PhonePriceModel()
+    versions = model._available_versions()
+    settings = _read_settings()
+    active_version = settings.get("active_model_version")
+
+    rows: list[dict] = []
+    for version in sorted(versions, reverse=True):
+        version_dir = MODEL_VERSIONS_DIR / f"v{version}"
+        metadata_path = version_dir / "metadata.json"
+        metadata = {}
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+        rows.append(
+            {
+                "version": version,
+                "name": f"v{version}",
+                "is_active": version == active_version,
+                "trained_at": metadata.get("trained_at"),
+                "records": metadata.get("records"),
+                "r2": metadata.get("r2"),
+                "mae": metadata.get("mae"),
+                "rmse": metadata.get("rmse"),
+                "features": metadata.get("features", []),
+                "target": metadata.get("target"),
+            }
+        )
+
+    return {
+        "active_version": active_version,
+        "versions": rows,
+    }
+
+
+def set_active_model_version(version: int) -> None:
+    model = PhonePriceModel()
+    versions = model._available_versions()
+    if version not in versions:
+        raise ValueError(f"Model version v{version} does not exist")
+
+    settings = _read_settings()
+    settings["active_model_version"] = version
+    _write_settings(settings)
+
+
+def delete_model_version(version: int) -> None:
+    settings = _read_settings()
+    active_version = settings.get("active_model_version")
+    if version == active_version:
+        raise ValueError("Cannot delete active model version")
+
+    version_dir = MODEL_VERSIONS_DIR / f"v{version}"
+    if not version_dir.exists():
+        raise ValueError(f"Model version v{version} does not exist")
+
+    shutil.rmtree(version_dir)
+
+
+def get_admin_visualization_payload(dataset_path: Path = DATASET_PATH) -> dict:
+    payload = {
+        "overview": {
+            "dataset_records": 0,
+            "active_model_version": None,
+            "total_users": len(list_users()),
+            "admin_users": len([u for u in list_users() if u["role"] == ADMIN_ROLE]),
+            "data_scientist_users": len([u for u in list_users() if u["role"] == DATA_SCIENTIST_ROLE]),
+        },
+        "feature_importance": {"labels": [], "values": []},
+        "price_distribution": {"bins": [], "counts": []},
+        "usage_price": {"x": [], "y": []},
+        "model_performance": {"labels": [], "r2": [], "rmse": [], "mae": []},
+        "dataset_summary": {},
+    }
+
+    model_versions = list_model_versions()
+    payload["overview"]["active_model_version"] = model_versions.get("active_version")
+    payload["model_performance"]["labels"] = [v["name"] for v in model_versions["versions"][:8]][::-1]
+    payload["model_performance"]["r2"] = [v.get("r2") for v in model_versions["versions"][:8]][::-1]
+    payload["model_performance"]["rmse"] = [v.get("rmse") for v in model_versions["versions"][:8]][::-1]
+    payload["model_performance"]["mae"] = [v.get("mae") for v in model_versions["versions"][:8]][::-1]
+
+    if dataset_path.exists():
+        df = pd.read_csv(dataset_path)
+        payload["overview"]["dataset_records"] = int(len(df))
+        payload["dataset_summary"] = dataset_summary(df)
+
+        if "normalized_used_price" in df.columns:
+            prices = np.exp(df["normalized_used_price"].astype(float).dropna())
+            if len(prices) > 0:
+                counts, bins = np.histogram(prices, bins=12)
+                payload["price_distribution"]["bins"] = [round(float(b), 2) for b in bins[:-1]]
+                payload["price_distribution"]["counts"] = [int(c) for c in counts]
+
+        if "days_used" in df.columns and "normalized_used_price" in df.columns:
+            sampled = df[["days_used", "normalized_used_price"]].dropna().sample(
+                n=min(250, len(df)),
+                random_state=42,
+            )
+            payload["usage_price"]["x"] = sampled["days_used"].astype(float).tolist()
+            payload["usage_price"]["y"] = np.exp(sampled["normalized_used_price"].astype(float)).round(2).tolist()
+
+    active_version = model_versions.get("active_version")
+    if active_version is not None:
+        model_path = MODEL_VERSIONS_DIR / f"v{active_version}" / "model.pkl"
+        if model_path.exists():
+            pipeline = joblib.load(model_path)
+            preprocessor = pipeline.named_steps.get("preprocessor")
+            regressor = pipeline.named_steps.get("regressor")
+            feature_names = preprocessor.get_feature_names_out().tolist()
+            importances = regressor.feature_importances_.tolist()
+            pairs = sorted(zip(feature_names, importances), key=lambda item: item[1], reverse=True)[:12]
+            payload["feature_importance"]["labels"] = [name.replace("num__", "").replace("cat__", "") for name, _ in pairs]
+            payload["feature_importance"]["values"] = [round(float(value), 4) for _, value in pairs]
+
+    return payload
