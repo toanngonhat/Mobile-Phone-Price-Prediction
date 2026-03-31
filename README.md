@@ -58,19 +58,23 @@ The application follows an MVC-style structure with Flask routing.
 ### Layers
 
 1. Presentation Layer
+
 - Flask templates for login and dashboard views
 - Role-specific dashboard sections
 
-2. Controller Layer
+1. Controller Layer
+
 - Authentication workflows
 - User prediction workflows
 - Admin/Data Scientist management workflows
 
-3. Model Layer
+1. Model Layer
+
 - `PhonePriceModel` for dataset build, training, loading, and inference
 - Versioned model artifacts and metrics
 
-4. Data and Config Layer
+1. Data and Config Layer
+
 - Centralized project settings
 - Device catalog mappings
 - Local dataset and app settings persistence
@@ -220,9 +224,11 @@ Input one row from UI fields and append to the dataset.
 Upload CSV using one of the following formats:
 
 1. Full normalized schema
+
 - Must include `normalized_used_price` and `normalized_new_price`
 
-2. Raw price schema
+1. Raw price schema
+
 - Use `used_price` and `new_price`
 - System auto converts to log values for normalized columns
 

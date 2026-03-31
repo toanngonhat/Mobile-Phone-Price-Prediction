@@ -99,9 +99,6 @@ def create_app() -> Flask:
         if screen_size <= 0 or camera_mp <= 0:
             raise ValueError(f"Model '{model_name}' is missing mapped screen/camera data")
 
-        normalized_new_price_raw = form.get("normalized_new_price", "").strip()
-        normalized_new_price = float(normalized_new_price_raw) if normalized_new_price_raw else template.get("normalized_new_price")
-
         features = {
             "brand": brand_for_model,
             "ram": ram,
@@ -109,10 +106,10 @@ def create_app() -> Flask:
             "battery_capacity": battery_capacity,
             "screen_size": screen_size,
             "camera_mp": camera_mp,
+            "release_year": int(template.get("release_year", 2023)),
+            "days_used": days_used,
             "branch": branch,
             "model": model_name,
-            "days_used": days_used,
-            "normalized_new_price": normalized_new_price,
         }
         ui_info = {
             "template_used": bool(template),
