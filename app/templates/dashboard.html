@@ -338,10 +338,12 @@
         <a class="nav-item {{ 'active' if admin_section == 'users' else '' }}" href="/admin?section=users">User
           Management</a>
         {% endif %}
+        {% if can_manage_models %}
         <a class="nav-item {{ 'active' if admin_section == 'visualization' else '' }}"
           href="/admin?section=visualization">Data Visualization</a>
         <a class="nav-item {{ 'active' if admin_section == 'models' else '' }}" href="/admin?section=models">Model
           Management</a>
+        {% endif %}
       </div>
     </div>
 
@@ -366,8 +368,10 @@
         {% if can_manage_users %}
         <a href="/admin?section=users"><button class="outline">Quick Access: User Management</button></a>
         {% endif %}
+        {% if can_manage_models %}
         <a href="/admin?section=visualization"><button class="outline">Quick Access: Data Visualization</button></a>
         <a href="/admin?section=models"><button class="outline">Quick Access: Model Management</button></a>
+        {% endif %}
       </div>
     </div>
 
@@ -425,7 +429,7 @@
 
     {% if admin_section == 'users' and can_manage_users %}
     <script id="role-permission-options-json"
-      type="application/json">{{ role_permission_options|default({'admin': ['dashboard','user_management','data_visualization','model_management','predict'], 'data_scientist': ['dashboard','data_visualization','model_management','predict'], 'user': ['predict']})|tojson }}</script>
+      type="application/json">{{ role_permission_options|default({'admin': ['user_management','predict'], 'data_scientist': ['dashboard','data_visualization','model_management','predict'], 'user': ['predict']})|tojson }}</script>
     <div class="card">
       <h3>Admin Users</h3>
       <p class="subtle">View, add, edit, delete users and manage permissions.</p>
@@ -519,7 +523,7 @@
     </div>
     {% endif %}
 
-    {% if admin_section == 'visualization' %}
+    {% if admin_section == 'visualization' and can_manage_models %}
     <div class="card">
       <h3>Data Visualization</h3>
       <p class="subtle">Feature importance, model performance, mobile price distribution, and days-used correlation.</p>
@@ -588,7 +592,7 @@
     </div>
     {% endif %}
 
-    {% if admin_section == 'models' %}
+    {% if admin_section == 'models' and can_manage_models %}
     <div class="card">
       <h3>Model Versions</h3>
       <p class="subtle">View all versions, switch active model, inspect metadata, and delete outdated models.</p>

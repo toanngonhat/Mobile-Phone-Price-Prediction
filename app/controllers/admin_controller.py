@@ -202,6 +202,19 @@ def _ensure_managed_users() -> dict:
             if username not in managed_users:
                 managed_users[username] = profile
                 dirty = True
+        # Keep stored permissions aligned with role defaults (removes stale model permissions from admins).
+        for username, profile in managed_users.items():
+            role = str(profile.get("role", USER_ROLE)).strip().lower()
+            if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE, USER_ROLE}:
+                role = USER_ROLE
+            normalized_permissions = _normalize_permissions(role, profile.get("permissions"))
+            if profile.get("role") != role:
+                profile["role"] = role
+                dirty = True
+            if profile.get("permissions") != normalized_permissions:
+                profile["permissions"] = normalized_permissions
+                dirty = True
+            managed_users[username] = profile
         if dirty:
             settings["managed_users"] = managed_users
             _write_settings(settings)
@@ -309,8 +322,15 @@ def delete_user(username: str) -> None:
 
 
 def list_model_versions() -> dict:
-    model = PhonePriceModel()
-    versions = model._available_versions()
+    versions: list[int] = []
+    if MODEL_VERSIONS_DIR.exists():
+        for p in MODEL_VERSIONS_DIR.iterdir():
+            if p.is_dir() and p.name.startswith("v"):
+                try:
+                    versions.append(int(p.name[1:]))
+                except ValueError:
+                    continue
+    versions = sorted(versions)
     settings = _read_settings()
     active_version = settings.get("active_model_version")
 
@@ -414,13 +434,17 @@ def get_admin_visualization_payload(dataset_path: Path = DATASET_PATH) -> dict:
     if active_version is not None:
         model_path = MODEL_VERSIONS_DIR / f"v{active_version}" / "model.pkl"
         if model_path.exists():
-            pipeline = joblib.load(model_path)
-            preprocessor = pipeline.named_steps.get("preprocessor")
-            regressor = pipeline.named_steps.get("regressor")
-            feature_names = preprocessor.get_feature_names_out().tolist()
-            importances = regressor.feature_importances_.tolist()
-            pairs = sorted(zip(feature_names, importances), key=lambda item: item[1], reverse=True)[:12]
-            payload["feature_importance"]["labels"] = [name.replace("num__", "").replace("cat__", "") for name, _ in pairs]
-            payload["feature_importance"]["values"] = [round(float(value), 4) for _, value in pairs]
+            try:
+                pipeline = joblib.load(model_path)
+                preprocessor = pipeline.named_steps.get("preprocessor")
+                regressor = pipeline.named_steps.get("regressor")
+                feature_names = preprocessor.get_feature_names_out().tolist()
+                importances = regressor.feature_importances_.tolist()
+                pairs = sorted(zip(feature_names, importances), key=lambda item: item[1], reverse=True)[:12]
+                payload["feature_importance"]["labels"] = [name.replace("num__", "").replace("cat__", "") for name, _ in pairs]
+                payload["feature_importance"]["values"] = [round(float(value), 4) for _, value in pairs]
+            except Exception:
+                # Keep dashboard responsive even when an old/corrupted model file cannot be deserialized.
+                payload["feature_importance"] = {"labels": [], "values": []}
 
     return payload

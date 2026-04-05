@@ -5,10 +5,7 @@ DATA_SCIENTIST_ROLE = "data_scientist"
 USER_ROLE = "user"
 
 ADMIN_PERMISSION_OPTIONS = [
-    "dashboard",
     "user_management",
-    "data_visualization",
-    "model_management",
     "predict",
 ]
 

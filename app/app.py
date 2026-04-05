@@ -199,6 +199,7 @@ def create_app() -> Flask:
 
         current_role = session.get("role", "")
         can_manage_users = current_role == ADMIN_ROLE
+        can_manage_models = current_role == DATA_SCIENTIST_ROLE
 
         prediction = None
         features = None
@@ -228,6 +229,9 @@ def create_app() -> Flask:
         if admin_section == "users" and not can_manage_users:
             flash("Data scientist role does not have access to user management", "error")
             admin_section = "home"
+        if admin_section in {"visualization", "models"} and not can_manage_models:
+            flash("Admin role no longer has access to model management or data visualization", "error")
+            admin_section = "home"
 
         if request.method == "POST":
             action = request.form.get("action", "predict")
@@ -236,6 +240,8 @@ def create_app() -> Flask:
                 admin_section = section_from_post
             if admin_section == "users" and not can_manage_users:
                 admin_section = "home"
+            if admin_section in {"visualization", "models"} and not can_manage_models:
+                admin_section = "home"
             if action == "predict":
                 form_data = request.form.to_dict(flat=True)
             try:
@@ -243,11 +249,15 @@ def create_app() -> Flask:
                     features, ui_info = _build_features_from_form(request.form)
                     prediction = predict_price(features)
                 elif action == "train":
+                    if not can_manage_models:
+                        raise PermissionError("Admin role no longer has access to model management")
                     records = _parse_int(request.form.get("records", "1000"), "records", 1)
                     distribution = request.form.get("distribution", "uniform")
                     append_only = request.form.get("append_only") == "on"
                     training_metrics = train_new_model(records=records, distribution=distribution, append_only=append_only)
                 elif action == "stats":
+                    if not can_manage_models:
+                        raise PermissionError("Admin role no longer has access to data visualization")
                     dataset_stats = get_dataset_summary()
                 elif action == "add_user":
                     if not can_manage_users:
@@ -280,14 +290,20 @@ def create_app() -> Flask:
                     delete_user(username=target_username)
                     flash("User deleted successfully", "success")
                 elif action == "set_active_model":
+                    if not can_manage_models:
+                        raise PermissionError("Admin role no longer has access to model management")
                     version = _parse_int(request.form.get("version", ""), "version", 1)
                     set_active_model_version(version)
                     flash(f"Active model switched to v{version}", "success")
                 elif action == "delete_model":
+                    if not can_manage_models:
+                        raise PermissionError("Admin role no longer has access to model management")
                     version = _parse_int(request.form.get("version", ""), "version", 1)
                     delete_model_version(version)
                     flash(f"Deleted model version v{version}", "success")
                 elif action == "add_manual_record":
+                    if not can_manage_models:
+                        raise PermissionError("Admin role no longer has access to model management")
                     manual_record_form = request.form.to_dict(flat=True)
                     result = add_manual_record(manual_record_form)
                     flash(
@@ -295,6 +311,8 @@ def create_app() -> Flask:
                         "success",
                     )
                 elif action == "import_csv_records":
+                    if not can_manage_models:
+                        raise PermissionError("Admin role no longer has access to model management")
                     csv_file = request.files.get("records_csv")
                     result = import_records_from_csv(csv_file)
                     flash(
@@ -303,6 +321,11 @@ def create_app() -> Flask:
                     )
             except Exception as exc:
                 flash(str(exc), "error")
+
+        model_versions_payload = {"active_version": None, "versions": []}
+        visual_payload = get_admin_visualization_payload()
+        if can_manage_models:
+            model_versions_payload = list_model_versions()
 
         return render_template(
             "dashboard.html",
@@ -318,8 +341,8 @@ def create_app() -> Flask:
             dataset_stats=dataset_stats,
             admin_section=admin_section,
             admin_users=list_users(),
-            model_versions=list_model_versions(),
-            visual_payload=get_admin_visualization_payload(),
+            model_versions=model_versions_payload,
+            visual_payload=visual_payload,
             permission_options=ADMIN_PERMISSION_OPTIONS,
             role_permission_options={
                 ADMIN_ROLE: ADMIN_PERMISSION_OPTIONS,
@@ -327,6 +350,7 @@ def create_app() -> Flask:
                 "user": ["predict"],
             },
             can_manage_users=can_manage_users,
+            can_manage_models=can_manage_models,
             manual_record_form=manual_record_form,
         )
 

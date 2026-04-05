@@ -6,33 +6,24 @@
       "password": "admin123",
       "role": "admin",
       "permissions": [
-        "dashboard",
-        "user_management",
-        "data_visualization",
-        "model_management",
-        "predict"
+        "predict",
+        "user_management"
       ]
     },
     "admin2": {
       "password": "admin456",
       "role": "admin",
       "permissions": [
-        "dashboard",
-        "user_management",
-        "data_visualization",
-        "model_management",
-        "predict"
+        "predict",
+        "user_management"
       ]
     },
     "admin3": {
       "password": "admin789",
       "role": "admin",
       "permissions": [
-        "dashboard",
-        "user_management",
-        "data_visualization",
-        "model_management",
-        "predict"
+        "predict",
+        "user_management"
       ]
     },
     "student1": {
