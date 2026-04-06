@@ -332,16 +332,16 @@
       <h2>Admin Dashboard</h2>
       <p class="subtle">Select a management area below:</p>
       <div class="nav-grid">
-        <a class="nav-item {{ 'active' if admin_section == 'home' else '' }}" href="/admin?section=home">Dashboard
+        <a class="nav-item {{ 'active' if admin_section == 'home' else '' }}" href="{{ management_path }}?section=home">Dashboard
           Home</a>
         {% if can_manage_users %}
-        <a class="nav-item {{ 'active' if admin_section == 'users' else '' }}" href="/admin?section=users">User
+        <a class="nav-item {{ 'active' if admin_section == 'users' else '' }}" href="{{ management_path }}?section=users">User
           Management</a>
         {% endif %}
         {% if can_manage_models %}
         <a class="nav-item {{ 'active' if admin_section == 'visualization' else '' }}"
-          href="/admin?section=visualization">Data Visualization</a>
-        <a class="nav-item {{ 'active' if admin_section == 'models' else '' }}" href="/admin?section=models">Model
+          href="{{ management_path }}?section=visualization">Data Visualization</a>
+        <a class="nav-item {{ 'active' if admin_section == 'models' else '' }}" href="{{ management_path }}?section=models">Model
           Management</a>
         {% endif %}
       </div>
@@ -366,18 +366,18 @@
       </div>
       <div class="actions">
         {% if can_manage_users %}
-        <a href="/admin?section=users"><button class="outline">Quick Access: User Management</button></a>
+        <a href="{{ management_path }}?section=users"><button class="outline">Quick Access: User Management</button></a>
         {% endif %}
         {% if can_manage_models %}
-        <a href="/admin?section=visualization"><button class="outline">Quick Access: Data Visualization</button></a>
-        <a href="/admin?section=models"><button class="outline">Quick Access: Model Management</button></a>
+        <a href="{{ management_path }}?section=visualization"><button class="outline">Quick Access: Data Visualization</button></a>
+        <a href="{{ management_path }}?section=models"><button class="outline">Quick Access: Model Management</button></a>
         {% endif %}
       </div>
     </div>
 
     <div class="card">
       <h3>Predict Mobile Price (Admin Preview)</h3>
-      <form method="post" action="/admin">
+      <form method="post" action="{{ management_path }}">
         <input type="hidden" name="action" value="predict" />
         <input type="hidden" name="section" value="home" />
         <div class="grid">
@@ -450,7 +450,7 @@
             <td>{{ user.role }}</td>
             <td>{{ user.permissions|join(', ') }}</td>
             <td>
-              <form method="post" action="/admin" class="user-edit-form">
+              <form method="post" action="{{ management_path }}" class="user-edit-form">
                 <input type="hidden" name="action" value="edit_user" />
                 <input type="hidden" name="section" value="users" />
                 <input type="hidden" name="username" value="{{ user.username }}" />
@@ -476,7 +476,7 @@
               </form>
             </td>
             <td>
-              <form method="post" action="/admin" onsubmit="return confirm('Delete user {{ user.username }}?');">
+              <form method="post" action="{{ management_path }}" onsubmit="return confirm('Delete user {{ user.username }}?');">
                 <input type="hidden" name="action" value="delete_user" />
                 <input type="hidden" name="section" value="users" />
                 <input type="hidden" name="username" value="{{ user.username }}" />
@@ -491,7 +491,7 @@
 
     <div class="card">
       <h3>Add New User</h3>
-      <form method="post" action="/admin" class="user-add-form">
+      <form method="post" action="{{ management_path }}" class="user-add-form">
         <input type="hidden" name="action" value="add_user" />
         <input type="hidden" name="section" value="users" />
         <div class="grid">
@@ -537,7 +537,7 @@
 
     <div class="card">
       <h3>Dataset Stats</h3>
-      <form method="post" action="/admin">
+      <form method="post" action="{{ management_path }}">
         <input type="hidden" name="action" value="stats" />
         <input type="hidden" name="section" value="visualization" />
         <button type="submit" class="outline">Load Latest Stats</button>
@@ -619,13 +619,13 @@
             </td>
             <td>
               <div class="actions">
-                <form method="post" action="/admin">
+                <form method="post" action="{{ management_path }}">
                   <input type="hidden" name="action" value="set_active_model" />
                   <input type="hidden" name="section" value="models" />
                   <input type="hidden" name="version" value="{{ version.version }}" />
                   <button class="outline" type="submit">Set Active</button>
                 </form>
-                <form method="post" action="/admin" onsubmit="return confirm('Delete {{ version.name }}?');">
+                <form method="post" action="{{ management_path }}" onsubmit="return confirm('Delete {{ version.name }}?');">
                   <input type="hidden" name="action" value="delete_model" />
                   <input type="hidden" name="section" value="models" />
                   <input type="hidden" name="version" value="{{ version.version }}" />
@@ -641,7 +641,7 @@
 
     <div class="card">
       <h3>Train New Model</h3>
-      <form method="post" action="/admin">
+      <form method="post" action="{{ management_path }}">
         <input type="hidden" name="action" value="train" />
         <input type="hidden" name="section" value="models" />
         <div class="grid">
@@ -673,7 +673,7 @@
     <div class="card">
       <h3>Add Single Record (Manual)</h3>
       <p class="subtle">Add one raw training row. Prices are entered as normal values and converted automatically.</p>
-      <form method="post" action="/admin">
+      <form method="post" action="{{ management_path }}">
         <input type="hidden" name="action" value="add_manual_record" />
         <input type="hidden" name="section" value="models" />
         <div class="grid">
@@ -713,7 +713,7 @@
       <p class="subtle">Upload CSV with either:</p>
       <p class="subtle">1) Full schema including normalized_used_price, normalized_new_price</p>
       <p class="subtle">2) Same schema but with used_price, new_price (auto-converted)</p>
-      <form method="post" action="/admin" enctype="multipart/form-data">
+      <form method="post" action="{{ management_path }}" enctype="multipart/form-data">
         <input type="hidden" name="action" value="import_csv_records" />
         <input type="hidden" name="section" value="models" />
         <div class="field">

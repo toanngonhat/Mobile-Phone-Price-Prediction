@@ -123,8 +123,6 @@ def create_app() -> Flask:
         role = session.get("role")
         return role in roles
 
-    def _is_management_role() -> bool:
-        return _require_role(ADMIN_ROLE, DATA_SCIENTIST_ROLE)
 
     @app.route("/", methods=["GET", "POST"])
     def login():
@@ -137,12 +135,16 @@ def create_app() -> Flask:
                 return render_template("login.html")
             session["username"] = username
             session["role"] = role
-            if role in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+            if role == ADMIN_ROLE:
                 return redirect(url_for("admin"))
+            if role == DATA_SCIENTIST_ROLE:
+                return redirect(url_for("data_science"))
             return redirect(url_for("user"))
 
-        if session.get("role") in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+        if session.get("role") == ADMIN_ROLE:
             return redirect(url_for("admin"))
+        if session.get("role") == DATA_SCIENTIST_ROLE:
+            return redirect(url_for("data_science"))
         if session.get("role") == "user":
             return redirect(url_for("user"))
         return render_template("login.html")
@@ -192,12 +194,7 @@ def create_app() -> Flask:
             permission_options=ADMIN_PERMISSION_OPTIONS,
         )
 
-    @app.route("/admin", methods=["GET", "POST"])
-    def admin():
-        if not _is_management_role():
-            return redirect(url_for("login"))
-
-        current_role = session.get("role", "")
+    def _render_management_dashboard(current_role: str, management_path: str):
         can_manage_users = current_role == ADMIN_ROLE
         can_manage_models = current_role == DATA_SCIENTIST_ROLE
 
@@ -331,6 +328,7 @@ def create_app() -> Flask:
             "dashboard.html",
             role=current_role,
             username=session.get("username"),
+            management_path=management_path,
             brand_options=_allowed_brands(),
             model_options_by_brand=_brand_model_map(),
             prediction=prediction,
@@ -354,13 +352,21 @@ def create_app() -> Flask:
             manual_record_form=manual_record_form,
         )
 
+    @app.route("/admin", methods=["GET", "POST"])
+    def admin():
+        if not _require_role(ADMIN_ROLE):
+            return redirect(url_for("login"))
+        return _render_management_dashboard(current_role=ADMIN_ROLE, management_path="/admin")
+
     @app.route("/data-scientist", methods=["GET", "POST"])
     def data_scientist():
-        return redirect(url_for("admin"))
+        return redirect(url_for("data_science"))
 
     @app.route("/data-science", methods=["GET", "POST"])
     def data_science():
-        return redirect(url_for("admin"))
+        if not _require_role(DATA_SCIENTIST_ROLE):
+            return redirect(url_for("login"))
+        return _render_management_dashboard(current_role=DATA_SCIENTIST_ROLE, management_path="/data-science")
 
     return app
 
