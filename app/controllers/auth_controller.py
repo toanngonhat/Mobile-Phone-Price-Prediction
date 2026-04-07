@@ -9,9 +9,6 @@ from app.config.credentials import (
     DATA_SCIENTIST_CREDENTIALS,
     DATA_SCIENTIST_PERMISSION_OPTIONS,
     DATA_SCIENTIST_ROLE,
-    USER_CREDENTIALS,
-    USER_PERMISSION_OPTIONS,
-    USER_ROLE,
 )
 from app.config.settings import APP_SETTINGS_PATH
 
@@ -37,29 +34,32 @@ def _build_default_users() -> dict[str, dict]:
             "role": DATA_SCIENTIST_ROLE,
             "permissions": DATA_SCIENTIST_PERMISSION_OPTIONS,
         }
-    for username, password in USER_CREDENTIALS.items():
-        users[username] = {
-            "password": password,
-            "role": USER_ROLE,
-            "permissions": USER_PERMISSION_OPTIONS,
-        }
     return users
 
 
 def _load_managed_users() -> dict[str, dict]:
     settings = _read_settings()
     managed = settings.get("managed_users")
-    defaults = _build_default_users()
     if isinstance(managed, dict) and managed:
-        for username, profile in defaults.items():
-            managed.setdefault(username, profile)
+        migrated = False
+        for username, profile in managed.items():
+            role = str(profile.get("role", DATA_SCIENTIST_ROLE)).strip().lower()
+            if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+                profile["role"] = DATA_SCIENTIST_ROLE
+                migrated = True
+            managed[username] = profile
+        if migrated:
+            settings["managed_users"] = managed
+            with open(APP_SETTINGS_PATH, "w", encoding="utf-8") as f:
+                json.dump(settings, f, indent=2)
         return managed
-    return defaults
+    return _build_default_users()
 
 
 def validate_login(username: str, password: str) -> str | None:
     managed_users = _load_managed_users()
     user_info = managed_users.get(username)
     if user_info and user_info.get("password") == password:
-        return user_info.get("role", USER_ROLE)
+        role = str(user_info.get("role", DATA_SCIENTIST_ROLE)).strip().lower()
+        return role if role in {ADMIN_ROLE, DATA_SCIENTIST_ROLE} else DATA_SCIENTIST_ROLE
     return None

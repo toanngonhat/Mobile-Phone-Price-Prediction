@@ -2,14 +2,11 @@
 
 ADMIN_ROLE = "admin"
 DATA_SCIENTIST_ROLE = "data_scientist"
-USER_ROLE = "user"
 
 ADMIN_PERMISSION_OPTIONS = [
     "user_management",
     "predict",
 ]
-
-USER_PERMISSION_OPTIONS = ["predict"]
 
 DATA_SCIENTIST_PERMISSION_OPTIONS = [
     "dashboard",
@@ -28,8 +25,3 @@ DATA_SCIENTIST_CREDENTIALS = {
     "ds1": "ds123456",
 }
 
-USER_CREDENTIALS = {
-    "student1": "stud123",
-    "engineer1": "eng123",
-    "recruiter1": "rec123",
-}

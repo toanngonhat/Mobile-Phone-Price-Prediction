@@ -183,8 +183,8 @@ def create_app() -> Flask:
             return redirect(url_for("admin"))
         if session.get("role") == DATA_SCIENTIST_ROLE:
             return redirect(url_for("data_science"))
-        if session.get("role") == "user":
-            return redirect(url_for("home"))
+        if session.get("role"):
+            session.clear()
         return render_template("login.html")
 
     @app.route("/logout")
@@ -266,7 +266,7 @@ def create_app() -> Flask:
                     add_user(
                         username=request.form.get("username", ""),
                         password=request.form.get("password", ""),
-                        role=request.form.get("role", "user"),
+                        role=request.form.get("role", "data_scientist"),
                         permissions=permissions,
                     )
                     flash("User created successfully", "success")
@@ -276,7 +276,7 @@ def create_app() -> Flask:
                     permissions = request.form.getlist("permissions")
                     update_user(
                         username=request.form.get("username", ""),
-                        role=request.form.get("role", "user"),
+                        role=request.form.get("role", "data_scientist"),
                         password=request.form.get("password") or None,
                         permissions=permissions,
                     )
@@ -348,7 +348,6 @@ def create_app() -> Flask:
             role_permission_options={
                 ADMIN_ROLE: ADMIN_PERMISSION_OPTIONS,
                 DATA_SCIENTIST_ROLE: DATA_SCIENTIST_PERMISSION_OPTIONS,
-                "user": ["predict"],
             },
             can_manage_users=can_manage_users,
             can_manage_models=can_manage_models,

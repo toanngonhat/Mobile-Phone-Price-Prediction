@@ -16,9 +16,6 @@ from app.config.credentials import (
     DATA_SCIENTIST_CREDENTIALS,
     DATA_SCIENTIST_PERMISSION_OPTIONS,
     DATA_SCIENTIST_ROLE,
-    USER_CREDENTIALS,
-    USER_PERMISSION_OPTIONS,
-    USER_ROLE,
 )
 from app.config.settings import APP_SETTINGS_PATH, DATASET_PATH, MODEL_VERSIONS_DIR
 from app.config.settings import RAW_SCHEMA
@@ -165,21 +162,13 @@ def _default_managed_users() -> dict[str, dict]:
             "role": DATA_SCIENTIST_ROLE,
             "permissions": list(DATA_SCIENTIST_PERMISSION_OPTIONS),
         }
-    for username, password in USER_CREDENTIALS.items():
-        managed_users[username] = {
-            "password": password,
-            "role": USER_ROLE,
-            "permissions": list(USER_PERMISSION_OPTIONS),
-        }
     return managed_users
 
 
 def _default_permissions_for_role(role: str) -> list[str]:
     if role == ADMIN_ROLE:
         return list(ADMIN_PERMISSION_OPTIONS)
-    if role == DATA_SCIENTIST_ROLE:
-        return list(DATA_SCIENTIST_PERMISSION_OPTIONS)
-    return list(USER_PERMISSION_OPTIONS)
+    return list(DATA_SCIENTIST_PERMISSION_OPTIONS)
 
 
 def _normalize_permissions(role: str, permissions: list[str] | None) -> list[str]:
@@ -198,15 +187,12 @@ def _ensure_managed_users() -> dict:
     managed_users = settings.get("managed_users")
     if isinstance(managed_users, dict) and managed_users:
         dirty = False
-        for username, profile in defaults.items():
-            if username not in managed_users:
-                managed_users[username] = profile
-                dirty = True
-        # Keep stored permissions aligned with role defaults (removes stale model permissions from admins).
+        # Only normalize existing accounts here so deletions persist.
+        # Default accounts are bootstrapped only when the store is empty.
         for username, profile in managed_users.items():
-            role = str(profile.get("role", USER_ROLE)).strip().lower()
-            if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE, USER_ROLE}:
-                role = USER_ROLE
+            role = str(profile.get("role", DATA_SCIENTIST_ROLE)).strip().lower()
+            if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+                role = DATA_SCIENTIST_ROLE
             normalized_permissions = _normalize_permissions(role, profile.get("permissions"))
             if profile.get("role") != role:
                 profile["role"] = role
@@ -230,7 +216,7 @@ def _ensure_managed_users() -> dict:
 def list_users() -> list[dict]:
     settings = _ensure_managed_users()
     users = settings.get("managed_users", {})
-    default_usernames = set(ADMIN_CREDENTIALS.keys()) | set(DATA_SCIENTIST_CREDENTIALS.keys()) | set(USER_CREDENTIALS.keys())
+    default_usernames = set(ADMIN_CREDENTIALS.keys()) | set(DATA_SCIENTIST_CREDENTIALS.keys())
 
     result: list[dict] = []
     for username, info in sorted(users.items(), key=lambda item: item[0].lower()):
@@ -240,7 +226,7 @@ def list_users() -> list[dict]:
         result.append(
             {
                 "username": username,
-                "role": info.get("role", USER_ROLE),
+                "role": info.get("role", DATA_SCIENTIST_ROLE),
                 "permissions": sorted(set(str(p) for p in permissions)),
                 "is_default": username in default_usernames,
             }
@@ -255,9 +241,9 @@ def add_user(username: str, password: str, role: str, permissions: list[str] | N
     if len(password) < 6:
         raise ValueError("Password must have at least 6 characters")
 
-    role = role.strip().lower() if role else USER_ROLE
-    if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE, USER_ROLE}:
-        raise ValueError("Role must be admin, data_scientist or user")
+    role = role.strip().lower() if role else DATA_SCIENTIST_ROLE
+    if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+        raise ValueError("Role must be admin or data_scientist")
 
     settings = _ensure_managed_users()
     users = settings.get("managed_users", {})
@@ -287,8 +273,8 @@ def update_user(
 
     if role:
         role = role.strip().lower()
-        if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE, USER_ROLE}:
-            raise ValueError("Role must be admin, data_scientist or user")
+        if role not in {ADMIN_ROLE, DATA_SCIENTIST_ROLE}:
+            raise ValueError("Role must be admin or data_scientist")
         info["role"] = role
 
     if password is not None and password.strip() != "":
@@ -297,9 +283,9 @@ def update_user(
         info["password"] = password
 
     if permissions is not None:
-        info["permissions"] = _normalize_permissions(info.get("role", USER_ROLE), permissions)
+        info["permissions"] = _normalize_permissions(info.get("role", DATA_SCIENTIST_ROLE), permissions)
     elif role:
-        info["permissions"] = _normalize_permissions(info.get("role", USER_ROLE), None)
+        info["permissions"] = _normalize_permissions(info.get("role", DATA_SCIENTIST_ROLE), None)
 
     users[username] = info
     settings["managed_users"] = users

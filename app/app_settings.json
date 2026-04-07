@@ -28,27 +28,40 @@
     },
     "student1": {
       "password": "stud123",
-      "role": "user",
-      "permissions": [
-        "predict"
-      ]
-    },
-    "engineer1": {
-      "password": "eng123",
-      "role": "user",
-      "permissions": [
-        "predict"
-      ]
-    },
-    "recruiter1": {
-      "password": "rec123",
-      "role": "user",
+      "role": "data_scientist",
       "permissions": [
         "predict"
       ]
     },
     "ds1": {
       "password": "ds123456",
+      "role": "data_scientist",
+      "permissions": [
+        "dashboard",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "engineer1": {
+      "password": "eng123",
+      "role": "data_scientist",
+      "permissions": [
+        "predict"
+      ]
+    },
+    "hihi": {
+      "password": "123456",
+      "role": "data_scientist",
+      "permissions": [
+        "dashboard",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "test123": {
+      "password": "123456",
       "role": "data_scientist",
       "permissions": [
         "dashboard",

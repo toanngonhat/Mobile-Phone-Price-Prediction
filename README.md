@@ -9,7 +9,7 @@ A machine learning web application for predicting used mobile phone prices using
 - [System Architecture](#system-architecture)
 - [Installation and Setup](#installation-and-setup)
 - [Running the Application](#running-the-application)
-- [User Roles and Workflows](#user-roles-and-workflows)
+- [Roles and Workflows](#roles-and-workflows)
 - [Model Features and Training](#model-features-and-training)
 - [Model Manager: Add Records](#model-manager-add-records)
 - [Project Structure](#project-structure)
@@ -24,7 +24,8 @@ This project predicts resale prices of mobile phones from structured device spec
 
 - Admin: full management (users, models, visualizations)
 - Data Scientist: model and analytics management (no user management)
-- User: prediction-only workflow
+
+Prediction is available from the public home page without login.
 
 The app is designed to run locally on `127.0.0.1:8000`.
 
@@ -32,7 +33,7 @@ The app is designed to run locally on `127.0.0.1:8000`.
 
 ### User-Facing Features
 
-- Role-based login for Admin, Data Scientist, and User
+- Role-based login for Admin and Data Scientist
 - Single mobile price prediction from form inputs
 - Dashboard sections for model versions, charts, and stats
 - Model training with configurable synthetic record generation
@@ -120,7 +121,7 @@ Supported distributions:
 - `latest_heavy`
 - `promax_heavy`
 
-## User Roles and Workflows
+## Roles and Workflows
 
 ### 1. Admin
 
@@ -161,17 +162,14 @@ Capabilities:
 - Same model and analytics capabilities as Admin
 - No access to User Management
 
-### 3. User
+### 3. Role Policy
 
-Credentials:
+This application now keeps only two roles:
 
-- `student1` / `stud123`
-- `engineer1` / `eng123`
-- `recruiter1` / `rec123`
+- `admin`
+- `data_scientist`
 
-Capabilities:
-
-- Predict mobile price from device specifications
+Legacy `user` accounts are migrated to `data_scientist` so existing logins keep working, but new account creation only allows the two active roles above.
 
 ## Model Features and Training
 
@@ -300,7 +298,7 @@ Example:
 
 ### Example 1: Predict a Mobile Price
 
-1. Login as a user account
+1. Open the home page
 2. Choose brand and model
 3. Enter device details
 4. Submit prediction form

@@ -226,18 +226,6 @@
       background: #f8fbff;
     }
 
-    .permission-list {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .permission-list label {
-      font-weight: 600;
-      font-size: 13px;
-      color: #314765;
-    }
-
     .checkbox-control {
       display: inline-flex;
       align-items: center;
@@ -436,8 +424,6 @@
     {% endif %}
 
     {% if admin_section == 'users' and can_manage_users %}
-    <script id="role-permission-options-json"
-      type="application/json">{{ role_permission_options|default({'admin': ['user_management','predict'], 'data_scientist': ['dashboard','data_visualization','model_management','predict'], 'user': ['predict']})|tojson }}</script>
     <div class="card">
       <h3>Admin Users</h3>
       <p class="subtle">View, add, edit, delete users and manage permissions.</p>
@@ -465,21 +451,13 @@
                 <div class="field">
                   <select name="role" class="role-select">
                     <option value="admin" {% if user.role=='admin' %}selected{% endif %}>admin</option>
-                    <option value="data_scientist" {% if user.role=='data_scientist' %}selected{% endif %}>
-                      data_scientist</option>
-                    <option value="user" {% if user.role=='user' %}selected{% endif %}>user</option>
+                    <option value="data_scientist" {% if user.role=='data_scientist' %}selected{% endif %}>data_scientist</option>
                   </select>
                 </div>
                 <div class="field">
                   <input name="password" placeholder="New password (optional)" />
                 </div>
-                <div class="permission-list role-permission-list">
-                  {% for permission in permission_options %}
-                  <label data-permission-item="{{ permission }}"><input type="checkbox" name="permissions"
-                      value="{{ permission }}" {% if permission in user.permissions %}checked{% endif %} />{{ permission
-                    }}</label>
-                  {% endfor %}
-                </div>
+                <p class="subtle">Permissions are derived automatically from the selected role.</p>
                 <div class="actions"><button class="outline" type="submit">Save</button></div>
               </form>
             </td>
@@ -514,18 +492,12 @@
           <div class="field">
             <label>Role</label>
             <select name="role" class="role-select">
-              <option value="user">user</option>
-              <option value="data_scientist">data_scientist</option>
               <option value="admin">admin</option>
+              <option value="data_scientist" selected>data_scientist</option>
             </select>
           </div>
         </div>
-        <div class="permission-list role-permission-list">
-          {% for permission in permission_options %}
-          <label data-permission-item="{{ permission }}"><input type="checkbox" name="permissions"
-              value="{{ permission }}" checked />{{ permission }}</label>
-          {% endfor %}
-        </div>
+        <p class="subtle">Permissions are derived automatically from the selected role.</p>
         <div class="actions"><button type="submit">Add User</button></div>
       </form>
     </div>
@@ -845,47 +817,6 @@
     const perfData = JSON.parse(document.getElementById('model-performance-json').textContent || '{"labels":[],"r2":[],"rmse":[],"mae":[]}');
     const distributionData = JSON.parse(document.getElementById('price-distribution-json').textContent || '{"bins":[],"counts":[]}');
     const usageData = JSON.parse(document.getElementById('usage-price-json').textContent || '{"x":[],"y":[]}');
-    const rolePermissionOptionsNode = document.getElementById('role-permission-options-json');
-    const rolePermissionOptions = rolePermissionOptionsNode
-      ? JSON.parse(rolePermissionOptionsNode.textContent || '{}')
-      : {};
-
-    function syncPermissionUIForForm(formNode) {
-      if (!formNode) {
-        return;
-      }
-      const roleSelect = formNode.querySelector('.role-select');
-      const permissionLabels = formNode.querySelectorAll('[data-permission-item]');
-      if (!roleSelect || permissionLabels.length === 0) {
-        return;
-      }
-      const selectedRole = roleSelect.value;
-      const allowedPermissions = rolePermissionOptions[selectedRole] || [];
-      permissionLabels.forEach((labelNode) => {
-        const permissionName = labelNode.getAttribute('data-permission-item');
-        const checkbox = labelNode.querySelector('input[type="checkbox"]');
-        const allowed = allowedPermissions.includes(permissionName);
-        labelNode.style.display = allowed ? 'inline-flex' : 'none';
-        if (checkbox) {
-          checkbox.disabled = !allowed;
-          if (!allowed) {
-            checkbox.checked = false;
-          }
-        }
-      });
-    }
-
-    function bindRolePermissionSync() {
-      const roleForms = document.querySelectorAll('.user-edit-form, .user-add-form');
-      roleForms.forEach((formNode) => {
-        const roleSelect = formNode.querySelector('.role-select');
-        if (roleSelect) {
-          roleSelect.addEventListener('change', () => syncPermissionUIForForm(formNode));
-        }
-        syncPermissionUIForForm(formNode);
-      });
-    }
-
     function buildCharts() {
       if (typeof Chart === 'undefined') {
         return;
@@ -952,7 +883,6 @@
     }
 
     buildCharts();
-    bindRolePermissionSync();
   </script>
 </body>
 
