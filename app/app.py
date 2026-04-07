@@ -125,40 +125,7 @@ def create_app() -> Flask:
 
 
     @app.route("/", methods=["GET", "POST"])
-    def login():
-        if request.method == "POST":
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "")
-            role = validate_login(username, password)
-            if role is None:
-                flash("Invalid username or password", "error")
-                return render_template("login.html")
-            session["username"] = username
-            session["role"] = role
-            if role == ADMIN_ROLE:
-                return redirect(url_for("admin"))
-            if role == DATA_SCIENTIST_ROLE:
-                return redirect(url_for("data_science"))
-            return redirect(url_for("user"))
-
-        if session.get("role") == ADMIN_ROLE:
-            return redirect(url_for("admin"))
-        if session.get("role") == DATA_SCIENTIST_ROLE:
-            return redirect(url_for("data_science"))
-        if session.get("role") == "user":
-            return redirect(url_for("user"))
-        return render_template("login.html")
-
-    @app.route("/logout")
-    def logout():
-        session.clear()
-        return redirect(url_for("login"))
-
-    @app.route("/user", methods=["GET", "POST"])
-    def user():
-        if not _require_role("user"):
-            return redirect(url_for("login"))
-
+    def home():
         prediction = None
         features = None
         ui_info = None
@@ -177,8 +144,9 @@ def create_app() -> Flask:
 
         return render_template(
             "dashboard.html",
-            role="user",
-            username=session.get("username"),
+            role="guest",
+            username="Guest",
+            prediction_form_action=url_for("home"),
             brand_options=_allowed_brands(),
             model_options_by_brand=_brand_model_map(),
             prediction=prediction,
@@ -193,6 +161,41 @@ def create_app() -> Flask:
             visual_payload={},
             permission_options=ADMIN_PERMISSION_OPTIONS,
         )
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            role = validate_login(username, password)
+            if role is None:
+                flash("Invalid username or password", "error")
+                return render_template("login.html")
+            session["username"] = username
+            session["role"] = role
+            if role == ADMIN_ROLE:
+                return redirect(url_for("admin"))
+            if role == DATA_SCIENTIST_ROLE:
+                return redirect(url_for("data_science"))
+            return redirect(url_for("home"))
+
+        if session.get("role") == ADMIN_ROLE:
+            return redirect(url_for("admin"))
+        if session.get("role") == DATA_SCIENTIST_ROLE:
+            return redirect(url_for("data_science"))
+        if session.get("role") == "user":
+            return redirect(url_for("home"))
+        return render_template("login.html")
+
+    @app.route("/logout")
+    def logout():
+        session.clear()
+        return redirect(url_for("login"))
+
+    @app.route("/user", methods=["GET", "POST"])
+    def user():
+        # Backward-compatible alias for older links/bookmarks.
+        return redirect(url_for("home"), code=307 if request.method == "POST" else 302)
 
     def _render_management_dashboard(current_role: str, management_path: str):
         can_manage_users = current_role == ADMIN_ROLE

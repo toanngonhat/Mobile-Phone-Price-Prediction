@@ -306,10 +306,18 @@
   <div class="top">
     <div>
       <strong>Mobile Price Predictor</strong>
+      {% if role in ['admin', 'data_scientist'] %}
       <span class="pill">Role: {{ role }}</span>
       <span class="pill">User: {{ username }}</span>
+      {% else %}
+      <span class="pill">Public Prediction</span>
+      {% endif %}
     </div>
+    {% if role in ['admin', 'data_scientist'] %}
     <a href="/logout"><button class="danger">Logout</button></a>
+    {% else %}
+    <a href="/login"><button class="outline">Login</button></a>
+    {% endif %}
   </div>
 
   <div class="container">
@@ -727,13 +735,13 @@
 
     {% else %}
     <div class="card hero">
-      <h1>Welcome, {{ username }}!</h1>
+      <h1>Welcome!</h1>
       <p>Provide your device specs to predict current mobile resale price.</p>
     </div>
 
     <div class="card">
       <h3>Predict Mobile Price</h3>
-      <form method="post" action="/user">
+      <form method="post" action="{{ prediction_form_action|default('/') }}">
         <div class="grid">
           <div class="field">
             <label>Brand</label>
