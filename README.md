@@ -22,8 +22,8 @@ A machine learning web application for predicting used mobile phone prices using
 
 This project predicts resale prices of mobile phones from structured device specifications. It uses a Random Forest pipeline, supports model versioning, and provides role-specific dashboard experiences:
 
-- Admin: user management and system overview 
-- Data Scientist: model and analytics management 
+- Admin: full management (users, models, visualizations)
+- Data Scientist: model and analytics management (no user management)
 
 Prediction is available from the public home page without login.
 
@@ -138,6 +138,18 @@ Capabilities:
   - view users
   - add/edit/delete users
   - manage permissions
+- Data Visualization:
+  - feature importance
+  - model performance metrics
+  - price distribution
+  - days-used vs price correlation
+- Model Management:
+  - view model versions
+  - switch active version
+  - delete outdated versions
+  - train new model
+  - add manual dataset row
+  - import dataset rows from CSV
 
 ### 2. Data Scientist
 
@@ -147,15 +159,7 @@ Credentials:
 
 Capabilities:
 
-- Dashboard home and system overview
-- Data Visualization:
-  - statistical distribution analysis (Box plot & KDE) 
-  - correlation matrix for all numeric features
-  - feature-vs-feature scatter plotting 
-- Model Management:
-  - view, switch active, delete and comparison model versions
-  - train new model (with custom Hyperparameters and Features)
-  - import dataset by 3 method: generate synthetic records, add single record, import multiple records (.csv file)
+- Same model and analytics capabilities as Admin
 - No access to User Management
 
 ### 3. Role Policy
