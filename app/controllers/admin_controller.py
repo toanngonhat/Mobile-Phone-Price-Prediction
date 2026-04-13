@@ -24,18 +24,40 @@ from app.utils.data_utils import dataset_summary
 
 
 def train_new_model(
+    dataset_path: Path = DATASET_PATH,
+    n_estimators: int = 100,
+    max_depth: int | None = None,
+    min_samples_split: int = 2,
+    min_samples_leaf: int = 1,
+    features: list[str] = None,
+) -> dict:
+    model = PhonePriceModel()
+    if not dataset_path.exists():
+        model.build_dataset(dataset_path=dataset_path)
+    return model.train_from_dataset(
+        dataset_path=dataset_path,
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        min_samples_leaf=min_samples_leaf,
+        features=features,
+    )
+
+def generate_synthetic_records(
     records: int = 1000,
     distribution: str = "uniform",
     append_only: bool = False,
     dataset_path: Path = DATASET_PATH,
 ) -> dict:
     model = PhonePriceModel()
-    return model.build_dataset_and_train(
+    model.build_dataset(
         dataset_path=dataset_path,
         synthetic_records=records,
         distribution_profile=distribution,
         append_only=append_only,
     )
+    df = pd.read_csv(dataset_path)
+    return {"total_rows": len(df), "added_rows": records}
 
 
 def get_dataset_summary(dataset_path: Path = DATASET_PATH) -> dict:
@@ -339,7 +361,12 @@ def list_model_versions() -> dict:
                 "mae": metadata.get("mae"),
                 "rmse": metadata.get("rmse"),
                 "features": metadata.get("features", []),
+                "feature_importances": metadata.get("feature_importances", {}),
                 "target": metadata.get("target"),
+                "n_estimators": metadata.get("n_estimators", "N/A"),
+                "max_depth": metadata.get("max_depth", "N/A"),
+                "min_samples_split": metadata.get("min_samples_split", "N/A"),
+                "min_samples_leaf": metadata.get("min_samples_leaf", "N/A"),
             }
         )
 
@@ -347,6 +374,15 @@ def list_model_versions() -> dict:
         "active_version": active_version,
         "versions": rows,
     }
+
+
+def get_model_metadata(version: int) -> dict | None:
+    version_dir = MODEL_VERSIONS_DIR / f"v{version}"
+    metadata_path = version_dir / "metadata.json"
+    if metadata_path.exists():
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
 
 
 def set_active_model_version(version: int) -> None:
@@ -382,10 +418,11 @@ def get_admin_visualization_payload(dataset_path: Path = DATASET_PATH) -> dict:
             "admin_users": len([u for u in list_users() if u["role"] == ADMIN_ROLE]),
             "data_scientist_users": len([u for u in list_users() if u["role"] == DATA_SCIENTIST_ROLE]),
         },
-        "feature_importance": {"labels": [], "values": []},
-        "price_distribution": {"bins": [], "counts": []},
-        "usage_price": {"x": [], "y": []},
+        "numeric_distributions": {},
+        "usage_price": {},
         "model_performance": {"labels": [], "r2": [], "rmse": [], "mae": []},
+        "correlation_heatmap": {"columns": [], "matrix": []},
+        "feature_distribution": {},
         "dataset_summary": {},
     }
 
@@ -401,36 +438,60 @@ def get_admin_visualization_payload(dataset_path: Path = DATASET_PATH) -> dict:
         payload["overview"]["dataset_records"] = int(len(df))
         payload["dataset_summary"] = dataset_summary(df)
 
-        if "normalized_used_price" in df.columns:
-            prices = np.exp(df["normalized_used_price"].astype(float).dropna())
-            if len(prices) > 0:
-                counts, bins = np.histogram(prices, bins=12)
-                payload["price_distribution"]["bins"] = [round(float(b), 2) for b in bins[:-1]]
-                payload["price_distribution"]["counts"] = [int(c) for c in counts]
+        numeric_vars = ["normalized_used_price", "normalized_new_price", "days_used", "release_year", "screen_size", "battery", "weight", "rear_camera_mp", "front_camera_mp", "internal_memory", "ram"]
+        for var in numeric_vars:
+            if var in df.columns:
+                series = df[var].astype(float).dropna()
+                if len(series) > 0:
+                    payload["numeric_distributions"][var] = {
+                        "raw": [round(float(x), 2) for x in series.tolist()],
+                        "mean": round(float(series.mean()), 2),
+                        "median": round(float(series.median()), 2)
+                    }
+                    try:
+                        from scipy.stats import gaussian_kde
+                        kde = gaussian_kde(series)
+                        x_kde = np.linspace(series.min(), series.max(), 100)
+                        y_kde = kde(x_kde)
+                        payload["numeric_distributions"][var]["kde_x"] = [round(float(x), 3) for x in x_kde]
+                        payload["numeric_distributions"][var]["kde_y"] = [round(float(y), 5) for y in y_kde]
+                    except ImportError:
+                        pass
 
-        if "days_used" in df.columns and "normalized_used_price" in df.columns:
-            sampled = df[["days_used", "normalized_used_price"]].dropna().sample(
+        if "normalized_used_price" in df.columns:
+            numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+            features = [c for c in numeric_cols if c not in ["id", "model"]]
+            sampled = df[features].dropna().sample(
                 n=min(250, len(df)),
                 random_state=42,
             )
-            payload["usage_price"]["x"] = sampled["days_used"].astype(float).tolist()
-            payload["usage_price"]["y"] = np.exp(sampled["normalized_used_price"].astype(float)).round(2).tolist()
+            payload["usage_price"] = {}
+            for f in features:
+                payload["usage_price"][f] = sampled[f].astype(float).tolist()
 
-    active_version = model_versions.get("active_version")
-    if active_version is not None:
-        model_path = MODEL_VERSIONS_DIR / f"v{active_version}" / "model.pkl"
-        if model_path.exists():
-            try:
-                pipeline = joblib.load(model_path)
-                preprocessor = pipeline.named_steps.get("preprocessor")
-                regressor = pipeline.named_steps.get("regressor")
-                feature_names = preprocessor.get_feature_names_out().tolist()
-                importances = regressor.feature_importances_.tolist()
-                pairs = sorted(zip(feature_names, importances), key=lambda item: item[1], reverse=True)[:12]
-                payload["feature_importance"]["labels"] = [name.replace("num__", "").replace("cat__", "") for name, _ in pairs]
-                payload["feature_importance"]["values"] = [round(float(value), 4) for _, value in pairs]
-            except Exception:
-                # Keep dashboard responsive even when an old/corrupted model file cannot be deserialized.
-                payload["feature_importance"] = {"labels": [], "values": []}
+        # Calculate Correlation Heatmap for numeric features
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        relevant_cols = [c for c in numeric_cols if c != "id" and c != "model"]
+        if relevant_cols:
+            corr_matrix = df[relevant_cols].corr(numeric_only=True).round(2).fillna(0)
+            payload["correlation_heatmap"]["columns"] = relevant_cols
+            payload["correlation_heatmap"]["matrix"] = corr_matrix.values.tolist()
+
+        # Grouped Feature Distributions
+        for col, title, suffix in [("device_brand", "Brand", ""), ("os", "OS", ""), ("screen_size", "Screen Size", "inch"), ("rear_camera_mp", "Rear Camera", "MP"), ("front_camera_mp", "Front Camera", "MP"), ("internal_memory", "ROM/Storage", "GB"), ("ram", "RAM", "GB"), ("battery", "Battery", "mAh"), ("weight", "Weight", "g"), ("release_year", "Release Year", "")]:
+            if col in df.columns:
+                counts = df[col].value_counts().head(7)
+                labels = []
+                for x in counts.index:
+                    try:
+                        x_val = f"{int(float(x))} {suffix}" if float(x).is_integer() else f"{x} {suffix}"
+                    except:
+                        x_val = f"{x} {suffix}"
+                    labels.append(x_val.strip())
+                payload["feature_distribution"][col] = {
+                    "labels": labels,
+                    "values": counts.values.tolist(),
+                    "title": title
+                }
 
     return payload
