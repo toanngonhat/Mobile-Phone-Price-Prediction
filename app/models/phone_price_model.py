@@ -237,50 +237,55 @@ class PhonePriceModel:
 		merged_df.to_csv(dataset_path, index=False)
 		return merged_df
 
-	def _prepare_training_matrix(self, raw_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-		X = pd.DataFrame(
-			{
-				"brand": raw_df["device_brand"].astype(str),
-				"ram": raw_df["ram"].astype(float),
-				"storage": raw_df["internal_memory"].astype(float),
-				"battery_capacity": raw_df["battery"].astype(float),
-				"screen_size": raw_df["screen_size"].astype(float) / 2.54,
-				"camera_mp": raw_df["rear_camera_mp"].astype(float),
-				"release_year": raw_df["release_year"].astype(float),
-				"days_used": raw_df["days_used"].astype(float),
-			}
-		)
+	def _prepare_training_matrix(self, raw_df: pd.DataFrame, features: list[str] = None) -> tuple[pd.DataFrame, pd.Series]:
+		all_X = {
+			"brand": raw_df["device_brand"].astype(str),
+			"os": raw_df["os"].astype(str),
+			"ram": raw_df["ram"].astype(float),
+			"storage": raw_df["internal_memory"].astype(float),
+			"battery_capacity": raw_df["battery"].astype(float),
+			"screen_size": raw_df["screen_size"].astype(float) / 2.54,
+			"camera_mp": raw_df["rear_camera_mp"].astype(float),
+			"front_camera_mp": raw_df["front_camera_mp"].astype(float),
+			"weight": raw_df["weight"].astype(float),
+			"release_year": raw_df["release_year"].astype(float),
+			"days_used": raw_df["days_used"].astype(float),
+			"normalized_new_price": raw_df["normalized_new_price"].astype(float),
+		}
+		if features:
+			available_keys = [k for k in all_X.keys() if k in features]
+			if not available_keys:
+				available_keys = list(all_X.keys())
+			all_X = {k: all_X[k] for k in available_keys}
+		
+		X = pd.DataFrame(all_X)
 		y = np.exp(raw_df["normalized_used_price"].astype(float))
 		return X, y
 
-	def _new_pipeline(self) -> Pipeline:
-		preprocessor = ColumnTransformer(
-			transformers=[
-				(
-					"cat",
-					Pipeline(
-						steps=[
-							("imputer", SimpleImputer(strategy="most_frequent")),
-							("encoder", OneHotEncoder(handle_unknown="ignore")),
-						]
-					),
-					["brand"],
-				),
-				(
-					"num",
-					Pipeline(steps=[("imputer", SimpleImputer(strategy="median"))]),
-					["ram", "storage", "battery_capacity", "screen_size", "camera_mp", "release_year", "days_used"],
-				),
-			]
-		)
+	def _new_pipeline(self, n_estimators: int = 100, max_depth: int | None = None, min_samples_split: int = 2, min_samples_leaf: int = 1, features: list[str] = None) -> Pipeline:
+		if not features:
+			features = ["brand", "ram", "storage", "battery_capacity", "screen_size", "camera_mp", "release_year", "days_used"]
+			
+		cat_feats = [f for f in features if f in ["brand", "os"]]
+		num_feats = [f for f in features if f not in ["brand", "os"]]
+		
+		transformers = []
+		if cat_feats:
+			transformers.append(("cat", Pipeline(steps=[("imputer", SimpleImputer(strategy="most_frequent")), ("encoder", OneHotEncoder(handle_unknown="ignore"))]), cat_feats))
+		if num_feats:
+			transformers.append(("num", Pipeline(steps=[("imputer", SimpleImputer(strategy="median"))]), num_feats))
+			
+		preprocessor = ColumnTransformer(transformers=transformers)
 		return Pipeline(
 			steps=[
 				("preprocessor", preprocessor),
 				(
 					"regressor",
 					RandomForestRegressor(
-						n_estimators=400,
-						max_depth=18,
+						n_estimators=n_estimators,
+						max_depth=max_depth,
+						min_samples_split=min_samples_split,
+						min_samples_leaf=min_samples_leaf,
 						random_state=42,
 						n_jobs=-1,
 					),
@@ -288,14 +293,28 @@ class PhonePriceModel:
 			]
 		)
 
-	def train_from_dataset(self, dataset_path: Path = DATASET_PATH) -> dict:
+	def train_from_dataset(
+        self, 
+        dataset_path: Path = DATASET_PATH, 
+        n_estimators: int = 100, 
+        max_depth: int | None = None,
+        min_samples_split: int = 2,
+        min_samples_leaf: int = 1,
+        features: list[str] = None
+    ) -> dict:
 		raw_df = pd.read_csv(dataset_path)
 		validate_schema(raw_df)
 
-		X, y = self._prepare_training_matrix(raw_df)
+		X, y = self._prepare_training_matrix(raw_df, features)
 		X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-		model = self._new_pipeline()
+		model = self._new_pipeline(
+            n_estimators=n_estimators, 
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            features=features
+        )
 		model.fit(X_train, y_train)
 		preds = model.predict(X_test)
 
@@ -308,14 +327,40 @@ class PhonePriceModel:
 			"version": new_version,
 			"records": int(len(raw_df)),
 			"kaggle_dataset": KAGGLE_DATASET_REF,
-			"features": FEATURE_COLUMNS,
+			"features": features if features else FEATURE_COLUMNS,
 			"excluded_features": ["4g", "5g"],
 			"target": "exp(normalized_used_price)",
 			"mae": float(mean_absolute_error(y_test, preds)),
 			"rmse": float(np.sqrt(mean_squared_error(y_test, preds))),
 			"r2": float(r2_score(y_test, preds)),
+			"n_estimators": n_estimators,
+			"max_depth": max_depth,
+			"min_samples_split": min_samples_split,
+			"min_samples_leaf": min_samples_leaf,
 			"trained_at": datetime.now(timezone.utc).isoformat(),
 		}
+
+		try:
+			rf_model = model.named_steps["regressor"]
+			preprocessor = model.named_steps["preprocessor"]
+			importances = rf_model.feature_importances_
+			feat_names = []
+			for name, trans, cols in preprocessor.transformers_:
+				if name == "cat":
+					ohe = trans.named_steps["encoder"]
+					feat_names.extend([f.split("_")[0] for f in ohe.get_feature_names_out(cols)])
+				elif name == "num":
+					feat_names.extend(cols)
+			
+			if len(feat_names) == len(importances):
+				fi_dict = {}
+				for fn, imp in zip(feat_names, importances):
+					fi_dict[fn] = fi_dict.get(fn, 0) + float(imp)
+				
+				# Sort by importance
+				metrics["feature_importances"] = {k: v for k, v in sorted(fi_dict.items(), key=lambda item: item[1], reverse=True)}
+		except Exception:
+			metrics["feature_importances"] = {}
 
 		joblib.dump(model, model_path)
 		with open(version_dir / "metadata.json", "w", encoding="utf-8") as f:
@@ -332,6 +377,8 @@ class PhonePriceModel:
 		synthetic_records: int = 1000,
 		distribution_profile: str = "uniform",
 		append_only: bool = False,
+		n_estimators: int = 100,
+		max_depth: int | None = None,
 	) -> dict:
 		self.build_dataset(
 			dataset_path=dataset_path,
@@ -339,7 +386,7 @@ class PhonePriceModel:
 			append_only=append_only,
 			distribution_profile=distribution_profile,
 		)
-		return self.train_from_dataset(dataset_path=dataset_path)
+		return self.train_from_dataset(dataset_path=dataset_path, n_estimators=n_estimators, max_depth=max_depth)
 
 	def predict(self, features: dict) -> float:
 		if self.model is None:

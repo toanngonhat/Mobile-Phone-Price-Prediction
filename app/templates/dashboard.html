@@ -325,11 +325,10 @@
     </div>
 
     <div class="card">
-      <h2>Admin Dashboard</h2>
+      <h2>Dashboard Management</h2>
       <p class="subtle">Select a management area below:</p>
       <div class="nav-grid">
-        <a class="nav-item {{ 'active' if admin_section == 'home' else '' }}" href="{{ management_path }}?section=home">Dashboard
-          Home</a>
+        <a class="nav-item {{ 'active' if admin_section == 'home' else '' }}" href="{{ management_path }}?section=home">Home</a>
         {% if can_manage_users %}
         <a class="nav-item {{ 'active' if admin_section == 'users' else '' }}" href="{{ management_path }}?section=users">User
           Management</a>
@@ -392,7 +391,11 @@
           </div>
           <div class="field non-iphone-field">
             <label>RAM (GB)</label>
-            <input name="ram" type="number" min="1" max="32" value="{{ form_data.get('ram', '') }}" required />
+            <select name="ram" required>
+              {% for r in [1, 2, 3, 4, 6, 8, 12, 16, 24] %}
+              <option value="{{ r }}" {% if manual_record_form.get('ram', '6' )|string==r|string %}selected{% endif %}>{{ r }} GB</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="field">
             <label>ROM/Internal Memory (GB)</label>
@@ -504,14 +507,83 @@
     {% endif %}
 
     {% if admin_section == 'visualization' and can_manage_models %}
-    <div class="card">
+      <div class="card">
       <h3>Data Visualization</h3>
-      <p class="subtle">Feature importance, model performance, mobile price distribution, and days-used correlation.</p>
-      <div class="chart-grid">
-        <div class="card"><canvas id="featureImportanceChart"></canvas></div>
-        <div class="card"><canvas id="modelPerformanceChart"></canvas></div>
-        <div class="card"><canvas id="priceDistributionChart"></canvas></div>
-        <div class="card"><canvas id="usagePriceChart"></canvas></div>
+      <p class="subtle">Interactive charts and analysis of the active model and training dataset.</p>
+
+      <script id="correlation-matrix-json" type="application/json">{{ visual_payload.correlation_heatmap|default({'columns': [], 'matrix': []})|tojson }}</script>
+      <script id="numeric-distribution-json" type="application/json">{{ visual_payload.numeric_distributions|default({})|tojson }}</script>
+      <script id="feature-distribution-json" type="application/json">{{ visual_payload.feature_distribution|default({})|tojson }}</script>
+
+      <div style="margin-top: 20px;">
+        <h4 style="border-bottom: 1px solid var(--line); padding-bottom: 8px;">1. Data Distributions</h4>
+        <div style="text-align: center; margin-bottom: 12px; margin-top: 15px;">
+            <strong class="subtle" style="margin-right: 10px;">Select Feature:</strong>
+            <select id="numericFeatureSelect" style="padding: 6px; border-radius: 4px; border: 1px solid var(--line); font-size: 14px; color: var(--ink); background: var(--card); min-width: 180px;">
+                <option value="normalized_used_price">Normalized Used Price</option>
+                <option value="normalized_new_price">Normalized New Price</option>
+                <option value="days_used">Days Used</option>
+                <option value="release_year">Release Year</option>
+                <option value="screen_size">Screen Size</option>
+                <option value="battery">Battery</option>
+                <option value="weight">Weight</option>
+                <option value="rear_camera_mp">Rear Camera</option>
+                <option value="front_camera_mp">Front Camera</option>
+                <option value="internal_memory">ROM/Storage</option>
+                <option value="ram">RAM</option>
+            </select>
+        </div>
+        <div class="chart-grid" style="margin-top: 8px;">
+          <div class="card" style="padding: 10px; box-shadow: none; border: 1px solid var(--line);">
+              <strong id="boxPlotTitle" class="subtle" style="display: block; margin-bottom: 8px; text-align: center;">Box Plot</strong>
+              <div id="numericBoxPlot" style="height: 350px; width: 100%;"></div>
+          </div>
+          <div class="card" style="padding: 10px; box-shadow: none; border: 1px solid var(--line); display: flex; flex-direction: column;">
+              <strong id="distPlotTitle" class="subtle" style="display: block; margin-bottom: 8px; text-align: center;">Distribution</strong>
+              <div id="numericDistPlot" style="height: 350px; width: 100%;"></div>
+          </div>
+        </div>
+
+        <h4 style="margin-top: 30px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">2. Feature Relationships</h4>
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+          <div class="card" style="padding: 10px; box-shadow: none; border: 1px solid var(--line);">
+              <strong class="subtle" style="display: block; margin-bottom: 8px; text-align: center;">Correlation Matrix</strong>
+              <div id="corrMapPlot" style="height: 550px; width: 100%;"></div>
+          </div>
+          <div class="card" style="padding: 10px; box-shadow: none; border: 1px solid var(--line); display: flex; flex-direction: column;">
+              <strong class="subtle" id="scatterTitle" style="display: block; margin-bottom: 8px; text-align: center;">Feature Scatter Plot</strong>
+              <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 8px; width: 100%; flex-wrap: wrap;">
+                  <select id="scatterFeatureSelectX" style="padding: 4px; border-radius: 4px; border: 1px solid var(--line); font-size: 13px; color: var(--ink); background: var(--card); max-width: 140px;">
+                      <option value="days_used">Days Used</option>
+                      <option value="normalized_used_price">Norm. Used Price</option>
+                      <option value="normalized_new_price">Norm. New Price</option>
+                      <option value="release_year">Release Year</option>
+                      <option value="screen_size">Screen Size</option>
+                      <option value="battery">Battery</option>
+                      <option value="ram">RAM</option>
+                      <option value="internal_memory">ROM/Storage</option>
+                      <option value="weight">Weight</option>
+                      <option value="rear_camera_mp">Rear Camera</option>
+                      <option value="front_camera_mp">Front Camera</option>
+                  </select>
+                  <span style="font-size: 13px; color: var(--subtle); align-self: center;">vs</span>
+                  <select id="scatterFeatureSelectY" style="padding: 4px; border-radius: 4px; border: 1px solid var(--line); font-size: 13px; color: var(--ink); background: var(--card); max-width: 140px;">
+                      <option value="normalized_used_price" selected>Norm. Used Price</option>
+                      <option value="days_used">Days Used</option>
+                      <option value="normalized_new_price">Norm. New Price</option>
+                      <option value="release_year">Release Year</option>
+                      <option value="screen_size">Screen Size</option>
+                      <option value="battery">Battery</option>
+                      <option value="ram">RAM</option>
+                      <option value="internal_memory">ROM/Storage</option>
+                      <option value="weight">Weight</option>
+                      <option value="rear_camera_mp">Rear Camera</option>
+                      <option value="front_camera_mp">Front Camera</option>
+                  </select>
+              </div>
+              <div id="usagePricePlot" style="height: 550px; width: 100%;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -574,50 +646,199 @@
 
     {% if admin_section == 'models' and can_manage_models %}
     <div class="card">
-      <h3>Model Versions</h3>
-      <p class="subtle">View all versions, switch active model, inspect metadata, and delete outdated models.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Version</th>
-            <th>Status</th>
-            <th>Metrics</th>
-            <th>Parameters</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for version in model_versions.versions %}
-          <tr>
-            <td>{{ version.name }}</td>
-            <td>{{ 'Active' if version.is_active else 'Inactive' }}</td>
-            <td>R2={{ version.r2 }} | RMSE={{ version.rmse }} | MAE={{ version.mae }}</td>
-            <td>
-              <div>Target: {{ version.target }}</div>
-              <div>Features: {{ version.features|join(', ') }}</div>
-              <div>Records: {{ version.records }}</div>
-            </td>
-            <td>
-              <div class="actions">
-                <form method="post" action="{{ management_path }}">
-                  <input type="hidden" name="action" value="set_active_model" />
-                  <input type="hidden" name="section" value="models" />
-                  <input type="hidden" name="version" value="{{ version.version }}" />
-                  <button class="outline" type="submit">Set Active</button>
-                </form>
-                <form method="post" action="{{ management_path }}" onsubmit="return confirm('Delete {{ version.name }}?');">
-                  <input type="hidden" name="action" value="delete_model" />
-                  <input type="hidden" name="section" value="models" />
-                  <input type="hidden" name="version" value="{{ version.version }}" />
-                  <button class="danger" type="submit">Delete</button>
-                </form>
+        <style>
+          .tab-buttons { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
+          .tab-btn { background: var(--line); border: 2px solid transparent; padding: 0.5rem 1rem; cursor: pointer; font-size: 1rem; font-weight: bold; color: var(--text); border-radius: 6px; transition: all 0.2s; }
+          .tab-btn:hover { opacity: 0.8; }
+          .tab-btn.active { background: transparent; color: var(--text); border: 2px solid #0056b3; opacity: 0.9; }
+          .tab-content { display: none; }
+          .tab-content.active { display: block; }
+        </style>
+        
+        <script>
+        function switchModelTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            element.classList.add('active');
+            if (tabId === 'compare' && window.Plotly) {
+                window.dispatchEvent(new Event('resize')); 
+            }
+        }
+        document.addEventListener("DOMContentLoaded", () => {
+            const btnCompare = document.getElementById('btnTabCompare');
+            const hasRequestedCompare = "{{ 'true' if compare_payload else 'false' }}" === "true";
+            if (hasRequestedCompare && btnCompare) {
+                switchModelTab('compare', btnCompare);
+            }
+        });
+        </script>
+
+        <div class="tab-buttons">
+          <button class="tab-btn {% if not compare_payload %}active{% endif %}" onclick="switchModelTab('versions', this)">Model Versions</button>
+          <button class="tab-btn {% if compare_payload %}active{% endif %}" id="btnTabCompare" onclick="switchModelTab('compare', this)">Model Comparison</button>
+          <button class="tab-btn" id="btnTabImportance" onclick="switchModelTab('importance', this)">Feature Importance</button>
+        </div>
+
+        <div id="tab-versions" class="tab-content {% if not compare_payload %}active{% endif %}">
+            <p class="subtle">View all versions, switch active model, inspect metadata, and delete outdated models.</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Status</th>
+                  <th>Metrics</th>
+                  <th>Parameters</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for version in model_versions.versions %}
+                <tr>
+                  <td>{{ version.name }}</td>
+                  <td>
+                      {% if version.is_active %}
+                      <span style="color: #28a745; font-weight: bold;">Active</span>
+                      {% else %}
+                      Inactive
+                      {% endif %}
+                  </td>
+                  <td>R2={{ version.r2 }} | RMSE={{ version.rmse }} | MAE={{ version.mae }}</td>
+                  <td>
+                    <div>Target: {{ version.target }}</div>
+                    <div>Features: {{ version.features|join(', ') }}</div>
+                    <div>Records: {{ version.records }}</div>
+                  </td>
+                  <td>
+                    <div class="actions">
+                      <form method="post" action="{{ management_path }}" style="display:inline;">
+                        <input type="hidden" name="action" value="set_active_model" />
+                        <input type="hidden" name="section" value="models" />
+                        <input type="hidden" name="version" value="{{ version.version }}" />
+                        <button class="outline" type="submit" {% if version.is_active %}disabled style="opacity: 0.5; cursor: not-allowed; pointer-events: none;"{% endif %}>Set Active</button>
+                      </form>
+                      <form method="post" action="{{ management_path }}" onsubmit="return confirm('Delete {{ version.name }}?');" style="display:inline;">
+                        <input type="hidden" name="action" value="delete_model" />
+                        <input type="hidden" name="section" value="models" />
+                        <input type="hidden" name="version" value="{{ version.version }}" />
+                        <button class="danger" type="submit" {% if version.is_active %}disabled style="opacity: 0.5; cursor: not-allowed; pointer-events: none;"{% endif %}>Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
+
+        {% set c_payload = compare_payload if compare_payload else model_versions.versions %}
+        {% set compare_version_ids = c_payload | map(attribute='version') | list %}
+
+        <div id="tab-compare" class="tab-content {% if compare_payload %}active{% endif %}">
+            <p class="subtle">Select models to compare their performance metrics.</p>
+
+            <form method="post" action="{{ management_path }}">
+              <input type="hidden" name="action" value="compare_versions" />
+              <input type="hidden" name="section" value="models" />
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" onclick="document.querySelectorAll('input[name=compare_versions]').forEach(x => x.checked = this.checked)" title="Select All" /></th>
+                    <th>Version</th>
+                      <th>Status</th>
+                      <th>Quick Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                  {% for version in model_versions.versions %}
+                  <tr>
+                    <td><input type="checkbox" name="compare_versions" value="{{ version.version }}" {% if version.version in compare_version_ids %}checked{% endif %} /></td>
+                    <td>{{ version.name }}</td>
+                      <td>
+                        {% if version.is_active %}
+                        <span style="color: #28a745; font-weight: bold;">Active</span>
+                        {% else %}
+                        Inactive
+                        {% endif %}
+                      </td>
+                      <td>R2 = {{ version.r2 }} | Records: {{ version.records }} | Features: {{ version.features|length }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+                <div style="margin-top: 1rem; margin-bottom: 1rem;">
+                <button type="submit" class="outline">Compare Selected Versions</button>
               </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+              
+            </form>
+
+            {% if c_payload and c_payload|length > 0 %}
+            <div id="compareResults" style="margin-bottom: 2rem; padding: 1.5rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg-card);">
+              <h3>Comparison Results</h3>
+              {% set best_model = c_payload | sort(attribute='r2', reverse=True) | first %}
+              <div style="background: rgba(40, 167, 69, 0.1); padding: 12px 16px; border-left: 4px solid #28a745; border-radius: 4px; margin-bottom: 1.5rem;">
+                💡 <strong style="color: #28a745;">Recommendation:</strong> Model <strong>v{{ best_model.version }}</strong> is the best choice with the highest R2 score of <strong>{{ best_model.r2 | round(4) }}</strong>.
+              </div>
+                  <table style="margin-top: 1rem; margin-bottom: 2rem;">
+                    <thead>
+                      <tr>
+                        <th>Version</th>
+                        <th>R2 Score</th>
+                        <th>RMSE</th>
+                        <th>MAE</th>
+                        <th>Records / Features</th>
+                        <th>Hyperparameters</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for cp in c_payload %}
+                      <tr>
+                        <td><strong>v{{ cp.version }}</strong></td>
+                        <td>{{ cp.r2 | round(4) }}</td>
+                        <td>{{ cp.rmse | round(2) }}</td>
+                        <td>{{ cp.mae | round(2) }}</td>
+                        <td>{{ cp.records }} rows<br/>{{ cp.features|length }} features</td>
+                        <td>
+                          Estimators: {{ cp.n_estimators | default('100') }}<br/>
+                          Max Depth: {{ cp.max_depth | default('None') }}<br/>
+                          Min Split: {{ cp.min_samples_split | default('2') }}<br/>
+                          Min Leaf: {{ cp.min_samples_leaf | default('1') }}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                <script type="application/json" id="compare-payload-json">{{ c_payload | tojson | safe }}</script>
+              <div class="grid">
+                <div id="compareR2Map" style="height: 350px;"></div>
+                <div id="compareErrorMap" style="height: 350px;"></div>
+              </div>
+            </div>
+            {% endif %}
+
+            
+        </div>
+
+        <div id="tab-importance" class="tab-content">
+            <p class="subtle">Select a model to view its Feature Importance (FI).</p>
+            <div style="margin-bottom: 20px;">
+              <select id="featImportanceSelect" onchange="renderSelectedModelFI()" style="padding: 10px; width: 300px; max-width: 100%;">
+                <option value="">-- Choose a model version --</option>
+                {% for version in model_versions.versions %}
+                  <option value="{{ version.version }}">v{{ version.version }} ({{ version.name }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <!-- We embed FI data to be used by javascript -->
+            {% for version in model_versions.versions %}
+              <script type="application/json" id="fi-data-{{ version.version }}">{{ version.feature_importances | tojson | safe }}</script>
+            {% endfor %}
+
+            <div id="fiChartContainerTab" style="height: 450px; width: 100%; display: none;"></div>
+            <p id="fiNoDataMsg" style="display: none; color: var(--danger);">No feature importance data is available for this model version. Please train a new model to see the chart.</p>
+        </div>
+      </div>
 
     <div class="card">
       <h3>Train New Model</h3>
@@ -626,83 +847,257 @@
         <input type="hidden" name="section" value="models" />
         <div class="grid">
           <div class="field">
-            <label>Records</label>
-            <input name="records" type="number" min="1" value="1000" required />
+            <label>N-Estimators</label>
+            <input name="n_estimators" type="number" min="1" value="100" placeholder="100" required />
           </div>
           <div class="field">
-            <label>Distribution Profile</label>
-            <select name="distribution">
-              <option value="uniform">uniform</option>
-              <option value="latest_heavy">latest_heavy</option>
-              <option value="promax_heavy">promax_heavy</option>
-            </select>
+            <label>Max Depth (Optional)</label>
+            <input name="max_depth" type="number" min="1" placeholder="None" />
+          </div>
+          <div class="field">
+            <label>Min Samples Split</label>
+            <input name="min_samples_split" type="number" min="2" value="2" placeholder="2" required />
+          </div>
+          <div class="field">
+            <label>Min Samples Leaf</label>
+            <input name="min_samples_leaf" type="number" min="1" value="1" placeholder="1" required />
           </div>
         </div>
-        <label class="checkbox-control" for="append_only_train">
-          <input id="append_only_train" name="append_only" type="checkbox" />
-          Append to existing dataset only
-        </label>
-        <p class="checkbox-hint">Keep current dataset and only add newly generated records before training.</p>
+        <div class="field" style="margin-top: 15px; margin-bottom: 20px;">
+          <label class="checkbox-control" style="cursor: pointer; display: flex; align-items: center;">
+            <input id="use_custom_features" name="use_custom_features" type="checkbox" checked onchange="document.getElementById('customFeatureTableWrapper').style.display = this.checked ? 'block' : 'none'" />
+            <strong style="margin-left: 8px;">Use Custom Features for Training</strong>
+          </label>
+          <div id="customFeatureTableWrapper" style="display: block; margin-top: 15px;">
+            <label style="display: flex; justify-content: space-between; align-items: baseline;">
+              <span>Select Features</span>
+              <span style="font-size: 0.9em; font-weight: normal;">
+                <a href="#" onclick="selectAllFeatures(event)" style="color: var(--primary); text-decoration: none;">Select All</a> &nbsp;|&nbsp;
+                <a href="#" onclick="unselectAllFeatures(event)" style="color: var(--primary); text-decoration: none;">Unselect All</a> &nbsp;|&nbsp;
+                <a href="#" onclick="resetDefaultFeatures(event)" style="color: var(--primary); text-decoration: none;">Reset Default</a>
+              </span>
+            </label>
+            <div style="overflow-x: auto; background: #f8fbff; padding: 15px; border-radius: 6px; border: 1px solid var(--line);">
+              <table style="width: 100%; border-collapse: collapse; text-align: center; min-width: 800px; white-space: nowrap;">
+              <thead>
+                <tr>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_brand" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Brand</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_os" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">OS</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_ram" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">RAM</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_storage" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Storage</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_battery" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Battery</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_screen" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Screen Size</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_camera" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Rear Cam</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_frontcam" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Front Cam</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_weight" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Weight</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_year" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Release Year</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_days" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">Days Used</label></th>
+                  <th style="padding: 0 10px 15px 10px; font-weight: normal; font-size: 0.9em; border-bottom: 1px solid var(--line);"><label for="cb_newprice" style="cursor: pointer; margin: 0; display: inline; font-weight: normal;">New Price</label></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_brand" name="features" value="brand" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_os" name="features" value="os" style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_ram" name="features" value="ram" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_storage" name="features" value="storage" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_battery" name="features" value="battery_capacity" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_screen" name="features" value="screen_size" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_camera" name="features" value="camera_mp" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_frontcam" name="features" value="front_camera_mp" style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_weight" name="features" value="weight" style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_year" name="features" value="release_year" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_days" name="features" value="days_used" checked style="cursor: pointer;" /></td>
+                  <td style="padding-top: 15px;"><input type="checkbox" id="cb_newprice" name="features" value="normalized_new_price" style="cursor: pointer;" /></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          </div>
+        </div>
+        <script>
+          function selectAllFeatures(e) {
+            e.preventDefault();
+            document.querySelectorAll('input[name="features"]').forEach(cb => cb.checked = true);
+          }
+          function unselectAllFeatures(e) {
+            e.preventDefault();
+            document.querySelectorAll('input[name="features"]').forEach(cb => cb.checked = false);
+          }
+          function resetDefaultFeatures(e) {
+            e.preventDefault();
+            const defaults = ["brand", "ram", "storage", "battery_capacity", "screen_size", "camera_mp", "release_year", "days_used"];
+            document.querySelectorAll('input[name="features"]').forEach(cb => {
+              cb.checked = defaults.includes(cb.value);
+            });
+          }
+        </script>
         <div class="actions"><button type="submit">Train Model</button></div>
       </form>
-      {% if training_metrics %}
-      <pre>{{ training_metrics }}</pre>
-      {% endif %}
     </div>
 
-    <div class="card">
-      <h3>Add Single Record (Manual)</h3>
-      <p class="subtle">Add one raw training row. Prices are entered as normal values and converted automatically.</p>
-      <form method="post" action="{{ management_path }}">
-        <input type="hidden" name="action" value="add_manual_record" />
-        <input type="hidden" name="section" value="models" />
-        <div class="grid">
-          <div class="field"><label>Device Brand</label><input name="device_brand"
-              value="{{ manual_record_form.get('device_brand', 'Apple') }}" required /></div>
-          <div class="field"><label>OS</label><input name="os" value="{{ manual_record_form.get('os', 'iOS') }}"
-              required /></div>
-          <div class="field"><label>Screen Size</label><input name="screen_size" type="number" step="0.01"
-              value="{{ manual_record_form.get('screen_size', '6.1') }}" required /></div>
-          <div class="field"><label>Rear Camera MP</label><input name="rear_camera_mp" type="number" step="0.1"
-              value="{{ manual_record_form.get('rear_camera_mp', '12') }}" required /></div>
-          <div class="field"><label>Front Camera MP</label><input name="front_camera_mp" type="number" step="0.1"
-              value="{{ manual_record_form.get('front_camera_mp', '12') }}" required /></div>
-          <div class="field"><label>Internal Memory</label><input name="internal_memory" type="number" step="1"
-              value="{{ manual_record_form.get('internal_memory', '128') }}" required /></div>
-          <div class="field"><label>RAM</label><input name="ram" type="number" step="1"
-              value="{{ manual_record_form.get('ram', '6') }}" required /></div>
-          <div class="field"><label>Battery</label><input name="battery" type="number" step="1"
-              value="{{ manual_record_form.get('battery', '3200') }}" required /></div>
-          <div class="field"><label>Weight</label><input name="weight" type="number" step="0.1"
-              value="{{ manual_record_form.get('weight', '190') }}" required /></div>
-          <div class="field"><label>Release Year</label><input name="release_year" type="number" step="1"
-              value="{{ manual_record_form.get('release_year', '2022') }}" required /></div>
-          <div class="field"><label>Days Used</label><input name="days_used" type="number" step="1"
-              value="{{ manual_record_form.get('days_used', '365') }}" required /></div>
-          <div class="field"><label>Used Price (raw)</label><input name="used_price" type="number" step="0.01"
-              value="{{ manual_record_form.get('used_price', '650') }}" required /></div>
-          <div class="field"><label>New Price (raw)</label><input name="new_price" type="number" step="0.01"
-              value="{{ manual_record_form.get('new_price', '999') }}" required /></div>
-        </div>
-        <div class="actions"><button type="submit" class="outline">Add Record</button></div>
-      </form>
-    </div>
+    <script>
+      function renderSelectedModelFI() {
+        let select = document.getElementById('featImportanceSelect');
+        let version = select.value;
+        let chartContainer = document.getElementById('fiChartContainerTab');
+        let noDataMsg = document.getElementById('fiNoDataMsg');
+        
+        if (!version) {
+          chartContainer.style.display = 'none';
+          noDataMsg.style.display = 'none';
+          return;
+        }
+
+        let scriptTag = document.getElementById('fi-data-' + version);
+        let fiData = JSON.parse(scriptTag.textContent || '{}');
+
+        if (!fiData || Object.keys(fiData).length === 0) {
+          chartContainer.style.display = 'none';
+          noDataMsg.style.display = 'block';
+          return;
+        }
+
+        chartContainer.style.display = 'block';
+        noDataMsg.style.display = 'none';
+
+        let labels = Object.keys(fiData);
+        let values = Object.values(fiData);
+
+        let trace = {
+          x: values,
+          y: labels,
+          type: 'bar',
+          orientation: 'h',
+          marker: {
+            color: 'rgba(54, 162, 235, 0.7)'
+          },
+          transforms: [{
+            type: 'sort',
+            target: 'x',
+            order: 'ascending'
+          }]
+        };
+
+        let layout = {
+          margin: { l: 120, r: 20, t: 20, b: 30 },
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') || '#333' },
+          xaxis: { title: 'Importance' },
+          yaxis: { automargin: true }
+        };
+
+        Plotly.newPlot('fiChartContainerTab', [trace], layout, {responsive: true});
+      }
+    </script>
 
     <div class="card">
-      <h3>Import Multiple Records (CSV)</h3>
-      <p class="subtle">Upload CSV with either:</p>
-      <p class="subtle">1) Full schema including normalized_used_price, normalized_new_price</p>
-      <p class="subtle">2) Same schema but with used_price, new_price (auto-converted)</p>
-      <form method="post" action="{{ management_path }}" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="import_csv_records" />
-        <input type="hidden" name="section" value="models" />
-        <div class="field">
-          <label>CSV File</label>
-          <input name="records_csv" type="file" accept=".csv" required />
-        </div>
-        <div class="actions"><button type="submit" class="outline">Import CSV</button></div>
-      </form>
+      <h3>Add Records</h3>
+      <div class="field" style="margin-bottom: 20px;">
+        <label>Method</label>
+        <select id="addRecordMethod" onchange="toggleAddRecordForm()">
+          <option value="synthetic">Generate Synthetic Records</option>
+          <option value="manual">Add Single Record (Manual)</option>
+          <option value="csv">Import Multiple Records (CSV)</option>
+        </select>
+      </div>
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--line);" />
+
+      <!-- Synthetic Form -->
+      <div id="formSynthetic">
+        <form method="post" action="{{ management_path }}">
+          <input type="hidden" name="action" value="generate_synthetic" />
+          <input type="hidden" name="section" value="models" />
+          <div class="grid">
+            <div class="field">
+              <label>Records</label>
+              <input name="records" type="number" min="1" value="1000" required />
+            </div>
+            <div class="field">
+              <label>Distribution Profile</label>
+              <select name="distribution">
+                <option value="uniform">uniform</option>
+                <option value="latest_heavy">latest_heavy</option>
+                <option value="promax_heavy">promax_heavy</option>
+              </select>
+            </div>
+          </div>
+          <label class="checkbox-control" for="append_only_train">
+            <input id="append_only_train" name="append_only" type="checkbox" />
+            Append to existing dataset only
+          </label>
+          <p class="checkbox-hint" style="margin-bottom: 15px;">Keep current dataset and only add newly generated records.</p>
+          <div class="actions"><button type="submit" class="outline">Generate Records</button></div>
+        </form>
+      </div>
+
+      <!-- Manual Record Form -->
+      <div id="formManual" style="display: none;">
+        <p class="subtle">Add one raw training row. Prices are entered as normal values and converted automatically.</p>
+        <form method="post" action="{{ management_path }}">
+          <input type="hidden" name="action" value="add_manual_record" />
+          <input type="hidden" name="section" value="models" />
+          <div class="grid">
+            <div class="field"><label>Device Brand</label><select name="device_brand" required>
+                {% for b in ['Apple', 'Samsung', 'Xiaomi', 'Oppo', 'Vivo', 'Huawei', 'Realme', 'OnePlus', 'Google', 'Asus', 'Nokia', 'Sony', 'Motorola', 'Honor', 'Other'] %}
+                <option value="{{ b }}" {% if manual_record_form.get('device_brand', 'Apple')==b %}selected{% endif %}>{{ b }}</option>
+                {% endfor %}
+              </select></div>
+            <div class="field"><label>OS</label><select name="os" required>
+                {% for o in ['iOS', 'Android', 'Other'] %}
+                <option value="{{ o }}" {% if manual_record_form.get('os', 'iOS')==o %}selected{% endif %}>{{ o }}</option>
+                {% endfor %}
+              </select></div>
+            <div class="field"><label>Screen Size</label><input name="screen_size" type="number" step="0.01" value="{{ manual_record_form.get('screen_size', '6.1') }}" required /></div>
+            <div class="field"><label>Rear Camera MP</label><input name="rear_camera_mp" type="number" step="0.1" value="{{ manual_record_form.get('rear_camera_mp', '12') }}" required /></div>
+            <div class="field"><label>Front Camera MP</label><input name="front_camera_mp" type="number" step="0.1" value="{{ manual_record_form.get('front_camera_mp', '12') }}" required /></div>
+            <div class="field"><label>Internal Memory</label><select name="internal_memory" required>
+                {% for s in [8, 16, 32, 64, 128, 256, 512, 1024] %}
+                <option value="{{ s }}" {% if manual_record_form.get('internal_memory', '128' )|string==s|string %}selected{% endif %}>{{ s }} GB</option>
+                {% endfor %}
+              </select></div>
+            <div class="field"><label>RAM</label><select name="ram" required>
+                {% for r in [1, 2, 3, 4, 6, 8, 12, 16, 24] %}
+                <option value="{{ r }}" {% if manual_record_form.get('ram', '6' )|string==r|string %}selected{% endif %}>{{ r }} GB</option>
+                {% endfor %}
+              </select></div>
+            <div class="field"><label>Battery</label><input name="battery" type="number" step="1" value="{{ manual_record_form.get('battery', '3200') }}" required /></div>
+            <div class="field"><label>Weight</label><input name="weight" type="number" step="0.1" value="{{ manual_record_form.get('weight', '190') }}" required /></div>
+            <div class="field"><label>Release Year</label><input name="release_year" type="number" step="1" value="{{ manual_record_form.get('release_year', '2022') }}" required /></div>
+            <div class="field"><label>Days Used</label><input name="days_used" type="number" step="1" value="{{ manual_record_form.get('days_used', '365') }}" required /></div>
+            <div class="field"><label>Used Price (raw)</label><input name="used_price" type="number" step="0.01" value="{{ manual_record_form.get('used_price', '650') }}" required /></div>
+            <div class="field"><label>New Price (raw)</label><input name="new_price" type="number" step="0.01" value="{{ manual_record_form.get('new_price', '999') }}" required /></div>
+          </div>
+          <div class="actions"><button type="submit" class="outline">Add Record</button></div>
+        </form>
+      </div>
+
+      <!-- CSV Import Form -->
+      <div id="formCSV" style="display: none;">
+        <p class="subtle">Upload CSV with either:</p>
+        <p class="subtle">1) Full schema including normalized_used_price, normalized_new_price</p>
+        <p class="subtle">2) Same schema but with used_price, new_price (auto-converted)</p>
+        <form method="post" action="{{ management_path }}" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="import_csv_records" />
+          <input type="hidden" name="section" value="models" />
+          <div class="field">
+            <label>CSV File</label>
+            <input name="records_csv" type="file" accept=".csv" required />
+          </div>
+          <div class="actions"><button type="submit" class="outline">Import CSV</button></div>
+        </form>
+      </div>
     </div>
+    
+    <script>
+      function toggleAddRecordForm() {
+        const method = document.getElementById('addRecordMethod').value;
+        document.getElementById('formSynthetic').style.display = method === 'synthetic' ? 'block' : 'none';
+        document.getElementById('formManual').style.display = method === 'manual' ? 'block' : 'none';
+        document.getElementById('formCSV').style.display = method === 'csv' ? 'block' : 'none';
+      }
+    </script>
     {% endif %}
 
     {% else %}
@@ -730,7 +1125,11 @@
           </div>
           <div class="field non-iphone-field">
             <label>RAM (GB)</label>
-            <input name="ram" type="number" min="1" max="32" value="{{ form_data.get('ram', '') }}" required />
+            <select name="ram" required>
+              {% for r in [1, 2, 3, 4, 6, 8, 12, 16, 24] %}
+              <option value="{{ r }}" {% if manual_record_form.get('ram', '6' )|string==r|string %}selected{% endif %}>{{ r }} GB</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="field">
             <label>ROM/Internal Memory (GB)</label>
@@ -764,8 +1163,6 @@
 
   <script id="model-options-json" type="application/json">{{ model_options_by_brand|tojson }}</script>
   <script id="selected-model-json" type="application/json">{{ form_data.get('model', '')|tojson }}</script>
-  <script id="feature-importance-json"
-    type="application/json">{{ visual_payload.feature_importance|default({'labels': [], 'values': []})|tojson }}</script>
   <script id="model-performance-json"
     type="application/json">{{ visual_payload.model_performance|default({'labels': [], 'r2': [], 'rmse': [], 'mae': []})|tojson }}</script>
   <script id="price-distribution-json"
@@ -773,10 +1170,10 @@
   <script id="usage-price-json"
     type="application/json">{{ visual_payload.usage_price|default({'x': [], 'y': []})|tojson }}</script>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <script>
-    const modelOptionsByBrand = JSON.parse(document.getElementById('model-options-json').textContent || '{}');
-    const selectedModel = JSON.parse(document.getElementById('selected-model-json').textContent || '""');
+    const modelOptionsByBrand = JSON.parse((document.getElementById('model-options-json')?.textContent) || '{}');
+    const selectedModel = JSON.parse((document.getElementById('selected-model-json')?.textContent) || '""');
 
     function syncModelOptions() {
       const branchNode = document.getElementById('branch');
@@ -813,72 +1210,198 @@
       syncModelOptions();
     }
 
-    const featureData = JSON.parse(document.getElementById('feature-importance-json').textContent || '{"labels":[],"values":[]}');
-    const perfData = JSON.parse(document.getElementById('model-performance-json').textContent || '{"labels":[],"r2":[],"rmse":[],"mae":[]}');
-    const distributionData = JSON.parse(document.getElementById('price-distribution-json').textContent || '{"bins":[],"counts":[]}');
-    const usageData = JSON.parse(document.getElementById('usage-price-json').textContent || '{"x":[],"y":[]}');
+    const featureData = {labels:[], values:[]};
+    const perfData = JSON.parse((document.getElementById('model-performance-json')?.textContent) || '{"labels":[],"r2":[],"rmse":[],"mae":[]}');
+    const distributionData = JSON.parse((document.getElementById('price-distribution-json')?.textContent) || '{"bins":[],"counts":[]}');
+    const usageData = JSON.parse((document.getElementById('usage-price-json')?.textContent) || '{"x":[],"y":[]}');
     function buildCharts() {
-      if (typeof Chart === 'undefined') {
-        return;
-      }
+      if (typeof Plotly === 'undefined') return;
 
-      const fiCtx = document.getElementById('featureImportanceChart');
-      if (fiCtx) {
-        new Chart(fiCtx, {
-          type: 'bar',
-          data: {
-            labels: featureData.labels,
-            datasets: [{ label: 'Feature Importance', data: featureData.values, backgroundColor: '#0f5fb9' }]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
-      }
+      const layoutConfig = {
+          margin: { t: 20, r: 20, l: 40, b: 30 },
+          font: { family: 'Avenir Next, Segoe UI, sans-serif', color: '#1f2937' },
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+      };
+      const config = { responsive: true, displayModeBar: false };
 
-      const perfCtx = document.getElementById('modelPerformanceChart');
-      if (perfCtx) {
-        new Chart(perfCtx, {
-          type: 'line',
-          data: {
-            labels: perfData.labels,
-            datasets: [
-              { label: 'R2', data: perfData.r2, borderColor: '#127347', tension: 0.2 },
-              { label: 'RMSE', data: perfData.rmse, borderColor: '#b85a00', tension: 0.2 },
-              { label: 'MAE', data: perfData.mae, borderColor: '#9a2a2a', tension: 0.2 }
-            ]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
-      }
+      const featureData = {labels:[], values:[]};
+      const numericDistributionData = JSON.parse((document.getElementById('numeric-distribution-json')?.textContent) || '{}');
+      const usageData = JSON.parse((document.getElementById('usage-price-json')?.textContent) || '{}');
+      const correlationData = JSON.parse((document.getElementById('correlation-matrix-json')?.textContent) || '{}');
+      const featureDistData = JSON.parse((document.getElementById('feature-distribution-json')?.textContent) || '{}');
 
-      const distCtx = document.getElementById('priceDistributionChart');
-      if (distCtx) {
-        new Chart(distCtx, {
-          type: 'bar',
-          data: {
-            labels: distributionData.bins,
-            datasets: [{ label: 'Mobile Price Distribution', data: distributionData.counts, backgroundColor: '#3662c8' }]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
-      }
+      // 1. Numeric Feature Distributions
+      const boxPlotEl = document.getElementById('numericBoxPlot');
+      const distPlotEl = document.getElementById('numericDistPlot');
+      const numSelectEl = document.getElementById('numericFeatureSelect');
 
-      const usageCtx = document.getElementById('usagePriceChart');
-      if (usageCtx) {
-        const scatterData = usageData.x.map((xValue, idx) => ({ x: xValue, y: usageData.y[idx] }));
-        new Chart(usageCtx, {
-          type: 'scatter',
-          data: {
-            datasets: [{ label: 'Days Used vs Price', data: scatterData, pointRadius: 3, backgroundColor: '#0a7f96' }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: { title: { display: true, text: 'Days Used' } },
-              y: { title: { display: true, text: 'Predicted Mobile Price ($)' } }
-            }
+      if (boxPlotEl && distPlotEl && numSelectEl && Object.keys(numericDistributionData).length > 0) {
+          
+          function renderNumericPlots() {
+              const selectedVar = numSelectEl.value;
+              const data = numericDistributionData[selectedVar];
+              if (!data) return;
+
+              const titleText = numSelectEl.options[numSelectEl.selectedIndex].text;
+              document.getElementById('boxPlotTitle').textContent = `${titleText} Box Plot`;
+              document.getElementById('distPlotTitle').textContent = `${titleText} Distribution`;
+
+              // Box Plot
+              const boxTrace = {
+                  x: data.raw,
+                  type: 'box',
+                  name: titleText,
+                  marker: { color: '#3174b0' },
+                  boxpoints: 'outliers'
+              };
+              Plotly.newPlot(boxPlotEl, [boxTrace], { 
+                  ...layoutConfig,
+                  xaxis: { title: titleText }
+              }, config);
+
+              // Histogram + KDE
+              const distTraces = [];
+              distTraces.push({
+                  x: data.raw,
+                  type: 'histogram',
+                  histnorm: 'probability density',
+                  marker: { color: 'steelblue', opacity: 0.6 },
+                  name: 'Frequency',
+                  nbinsx: 40
+              });
+
+              if (data.kde_x && data.kde_y) {
+                  distTraces.push({
+                      x: data.kde_x,
+                      y: data.kde_y,
+                      mode: 'lines',
+                      type: 'scatter',
+                      line: { color: 'darkblue', width: 2 },
+                      name: 'KDE'
+                  });
+              }
+
+              const shapes = [];
+              if (data.mean != null) {
+                  shapes.push({
+                      type: 'line',
+                      x0: data.mean, x1: data.mean,
+                      y0: 0, y1: 1, yref: 'paper',
+                      line: { color: 'red', width: 2 }
+                  });
+                  distTraces.push({ x: [data.mean], y: [0], type: 'scatter', mode: 'lines', line: { color: 'red' }, name: `Mean: ${data.mean}` });
+              }
+              if (data.median != null) {
+                  shapes.push({
+                      type: 'line',
+                      x0: data.median, x1: data.median,
+                      y0: 0, y1: 1, yref: 'paper',
+                      line: { color: 'yellow', width: 2 }
+                  });
+                  distTraces.push({ x: [data.median], y: [0], type: 'scatter', mode: 'lines', line: { color: 'yellow' }, name: `Median: ${data.median}` });
+              }
+
+              Plotly.newPlot(distPlotEl, distTraces, { 
+                  ...layoutConfig, 
+                  bargap: 0,
+                  xaxis: { title: titleText },
+                  yaxis: { title: 'Density' },
+                  shapes: shapes,
+                  showlegend: true,
+                  legend: { x: 1, xanchor: 'right', y: 1 }
+              }, config);
           }
-        });
+
+          // Initial render and bind event
+          Array.from(numSelectEl.options).forEach(opt => {
+              if (!numericDistributionData[opt.value]) opt.remove();
+          });
+          if (numSelectEl.options.length > 0) {
+              renderNumericPlots();
+              numSelectEl.addEventListener('change', renderNumericPlots);
+          }
+      }
+
+      // 2. Correlation Matrix
+      if (document.getElementById('corrMapPlot')) {
+         if (correlationData.columns && correlationData.columns.length && correlationData.matrix && correlationData.matrix.length) {
+            const trace = {
+               x: correlationData.columns,
+               y: correlationData.columns,
+               z: correlationData.matrix,
+               type: 'heatmap',
+               colorscale: 'Magma',
+               zmin: -1, zmax: 1,
+               showscale: true
+            };
+            Plotly.newPlot('corrMapPlot', [trace], { ...layoutConfig, xaxis: { tickangle: -45, automargin: true }, yaxis: { autorange: 'reversed', automargin: true, scaleanchor: 'x', constrain: 'domain' }, margin: { t:20, r:20, l:110, b:90 } }, config);
+         } else {
+            document.getElementById('corrMapPlot').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;"><p class="subtle">Plotly correlation matrix data unavailable.</p></div>';
+         }
+      }
+
+      // 3. Feature vs Feature Scatter
+      if (document.getElementById('usagePricePlot') && Object.keys(usageData).length > 0) {
+          const selectX = document.getElementById('scatterFeatureSelectX');
+          const selectY = document.getElementById('scatterFeatureSelectY');
+          
+          function renderScatter() {
+              const xValue = selectX.value;
+              const yValue = selectY.value;
+              const xName = selectX.options[selectX.selectedIndex].text;
+              const yName = selectY.options[selectY.selectedIndex].text;
+              
+              const trace = {
+                  x: usageData[xValue] || [], 
+                  y: usageData[yValue] || [],
+                  mode: 'markers', type: 'scatter',
+                  marker: { color: '#0a7f96', size: 6, opacity: 0.7 }
+              };
+              Plotly.newPlot('usagePricePlot', [trace], { 
+                  ...layoutConfig, 
+                  xaxis: { title: xName, automargin: true }, 
+                  yaxis: { title: yName, automargin: true },
+                  margin: {t:10, r:10, l:50, b:40} 
+              }, config);
+          }
+          
+          if (selectX && selectY) {
+              [selectX, selectY].forEach(selectEl => {
+                  Array.from(selectEl.options).forEach(opt => {
+                      if (!usageData[opt.value]) opt.remove();
+                  });
+                  selectEl.addEventListener('change', renderScatter);
+              });
+              if(selectX.options.length > 0 && selectY.options.length > 0) {
+                  renderScatter();
+              }
+          }
+      }
+
+      // 7. Comparison Charts (if they exist)
+      if (document.getElementById('compare-payload-json')) {
+        const rawCompareData = (document.getElementById('compare-payload-json')?.textContent);
+        if (rawCompareData) {
+            const compareData = JSON.parse(rawCompareData);
+            const labels = compareData.map(c => `v${c.version}`);
+            
+            if (document.getElementById('compareR2Map')) {
+               const trace = {
+                  x: labels,
+                  y: compareData.map(c => c.r2 || 0),
+                  type: 'bar',
+                  marker: { color: '#127347', line: { width: 1, color: '#0b5231' } }
+               };
+               Plotly.newPlot('compareR2Map', [trace], { ...layoutConfig, title: {text: 'R2 Score (Higher is better)', font: {size: 14}} }, config);
+            }
+
+            if (document.getElementById('compareErrorMap')) {
+               const trace1 = { x: labels, y: compareData.map(c => c.rmse || 0), name: 'RMSE', type: 'bar', marker: { color: '#b85a00' } };
+               const trace2 = { x: labels, y: compareData.map(c => c.mae || 0), name: 'MAE', type: 'bar', marker: { color: '#9a2a2a' } };
+               Plotly.newPlot('compareErrorMap', [trace1, trace2], { ...layoutConfig, barmode: 'group', title: {text: 'Error Metrics (Lower is better)', font: {size: 14}} }, config);
+            }
+        }
       }
     }
 
