@@ -18,8 +18,6 @@ from app.controllers.admin_controller import (
     delete_user,
     get_admin_visualization_payload,
     get_dataset_summary,
-    get_model_metadata,
-    generate_synthetic_records,
     import_records_from_csv,
     list_model_versions,
     list_users,
@@ -126,15 +124,7 @@ def create_app() -> Flask:
         return role in roles
 
 
-
-    @app.route("/reports/<path:filename>")
-    def serve_reports(filename):
-        from flask import send_from_directory
-        return send_from_directory(os.path.join(app.root_path, "..", "reports"), filename)
-
     @app.route("/", methods=["GET", "POST"])
-
-
     def home():
         prediction = None
         features = None
@@ -165,11 +155,10 @@ def create_app() -> Flask:
             form_data=form_data,
             training_metrics=None,
             dataset_stats=None,
-            compare_payload=None,
             admin_section="home",
             admin_users=[],
             model_versions={"active_version": None, "versions": []},
-            visual_payload={}, manual_record_form={},
+            visual_payload={},
             permission_options=ADMIN_PERMISSION_OPTIONS,
         )
 
@@ -217,7 +206,6 @@ def create_app() -> Flask:
         ui_info = None
         training_metrics = None
         dataset_stats = None
-        compare_payload = None
         form_data: dict[str, str] = {
             "branch": "iPhone",
             "days_used": "365",
@@ -263,53 +251,10 @@ def create_app() -> Flask:
                 elif action == "train":
                     if not can_manage_models:
                         raise PermissionError("Admin role no longer has access to model management")
-                    n_estimators_val = request.form.get("n_estimators", "100").strip()
-                    n_estimators = _parse_int(n_estimators_val, "n_estimators", 1) if n_estimators_val else 100
-                    max_depth_val = request.form.get("max_depth", "").strip()
-                    max_depth = _parse_int(max_depth_val, "max_depth", 1) if max_depth_val else None
-                    min_samples_split_val = request.form.get("min_samples_split", "2").strip()
-                    min_samples_split = _parse_int(min_samples_split_val, "min_samples_split", 2) if min_samples_split_val else 2
-                    min_samples_leaf_val = request.form.get("min_samples_leaf", "1").strip()
-                    min_samples_leaf = _parse_int(min_samples_leaf_val, "min_samples_leaf", 1) if min_samples_leaf_val else 1
-
-                    use_custom_features = request.form.get("use_custom_features") == "on"
-                    if use_custom_features:
-                        features_list = request.form.getlist("features")
-                        if not features_list:
-                            features_list = None
-                    else:
-                        features_list = None
-
-                    training_metrics = train_new_model(
-                        n_estimators=n_estimators,
-                        max_depth=max_depth,
-                        min_samples_split=min_samples_split,
-                        min_samples_leaf=min_samples_leaf,
-                        features=features_list
-                    )
-                elif action == "generate_synthetic":
-                    if not can_manage_models:
-                        raise PermissionError("Admin role no longer has access to model management")
                     records = _parse_int(request.form.get("records", "1000"), "records", 1)
                     distribution = request.form.get("distribution", "uniform")
                     append_only = request.form.get("append_only") == "on"
-                    
-                    result = generate_synthetic_records(records=records, distribution=distribution, append_only=append_only)
-                    flash(f"Generated {result['added_rows']} synthetic records. Dataset now has {result['total_rows']} rows.", "success")
-                elif action == "compare_versions":
-                    if not can_manage_models:
-                        raise PermissionError("Admin role no longer has access to model management")
-                    selected_versions = request.form.getlist("compare_versions")
-                    if len(selected_versions) < 2:
-                        raise ValueError("Please select at least 2 models to compare.")
-                    
-                    compare_payload = []
-                    for v in selected_versions:
-                        v_int = _parse_int(v, "version", 1)
-                        meta = get_model_metadata(v_int)
-                        if meta:
-                            compare_payload.append(meta)
-                    admin_section = "models"
+                    training_metrics = train_new_model(records=records, distribution=distribution, append_only=append_only)
                 elif action == "stats":
                     if not can_manage_models:
                         raise PermissionError("Admin role no longer has access to data visualization")
@@ -395,7 +340,6 @@ def create_app() -> Flask:
             form_data=form_data,
             training_metrics=training_metrics,
             dataset_stats=dataset_stats,
-            compare_payload=compare_payload,
             admin_section=admin_section,
             admin_users=list_users(),
             model_versions=model_versions_payload,

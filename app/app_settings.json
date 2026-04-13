@@ -1,6 +1,6 @@
 {
-  "active_model_version": 5,
-  "last_training_time": "2026-04-13T09:02:19.266454+00:00",
+  "active_model_version": 4,
+  "last_training_time": "2026-03-30T13:29:04.057809+00:00",
   "managed_users": {
     "admin1": {
       "password": "admin123",
@@ -26,8 +26,42 @@
         "user_management"
       ]
     },
+    "student1": {
+      "password": "stud123",
+      "role": "data_scientist",
+      "permissions": [
+        "predict"
+      ]
+    },
     "ds1": {
       "password": "ds123456",
+      "role": "data_scientist",
+      "permissions": [
+        "dashboard",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "engineer1": {
+      "password": "eng123",
+      "role": "data_scientist",
+      "permissions": [
+        "predict"
+      ]
+    },
+    "hihi": {
+      "password": "123456",
+      "role": "data_scientist",
+      "permissions": [
+        "dashboard",
+        "data_visualization",
+        "model_management",
+        "predict"
+      ]
+    },
+    "test123": {
+      "password": "123456",
       "role": "data_scientist",
       "permissions": [
         "dashboard",
