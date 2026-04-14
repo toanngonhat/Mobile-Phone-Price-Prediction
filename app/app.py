@@ -103,13 +103,17 @@ def create_app() -> Flask:
 
         features = {
             "brand": brand_for_model,
+            "os": template.get("os", "Android"),
             "ram": ram,
             "storage": storage,
             "battery_capacity": battery_capacity,
             "screen_size": screen_size,
             "camera_mp": camera_mp,
+            "front_camera_mp": float(template.get("front_camera_mp", 12)),
+            "weight": float(template.get("weight", 190)),
             "release_year": int(template.get("release_year", 2023)),
             "days_used": days_used,
+            "normalized_new_price": float(template.get("normalized_new_price", 6.8)),
             "branch": branch,
             "model": model_name,
         }
