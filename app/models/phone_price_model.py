@@ -394,19 +394,28 @@ class PhonePriceModel:
 		if self.model is None:
 			return self._mock_predict(features)
 
-		input_df = pd.DataFrame(
-			[
-				{
-					"brand": features["brand"],
-					"ram": float(features["ram"]),
-					"storage": float(features["storage"]),
-					"battery_capacity": float(features["battery_capacity"]),
-					"screen_size": float(features["screen_size"]),
-					"camera_mp": float(features["camera_mp"]),
-					"release_year": float(features["release_year"]),
-					"days_used": float(features["days_used"]),
-				}
-			]
-		)
+		# Try to determine the features used during training
+		try:
+			# The preprocessor (ColumnTransformer) identifies features it was trained on
+			expected_features = self.model.named_steps["preprocessor"].feature_names_in_
+		except (AttributeError, KeyError):
+			try:
+				# Fallback to regressor if preprocessor doesn't have it (less likely in this structure)
+				expected_features = self.model.named_steps["regressor"].feature_names_in_
+			except (AttributeError, KeyError):
+				# Final fallback to standard columns
+				from app.config.settings import FEATURE_COLUMNS
+				expected_features = FEATURE_COLUMNS
+
+		# Build the row dynamically based on expected features
+		row = {}
+		for feat in expected_features:
+			val = features.get(feat)
+			if val is None:
+				# Fallback to a safe numeric default if feature is missing from catalog/input
+				val = 0.0
+			row[feat] = val
+
+		input_df = pd.DataFrame([row], columns=expected_features)
 		pred = self.model.predict(input_df)[0]
 		return round(float(pred), 2)
