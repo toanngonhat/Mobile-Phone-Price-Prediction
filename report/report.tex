@@ -1,0 +1,65 @@
+\documentclass[twoside]{hcmut-report}
+
+\usepackage{verbatim}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{float}
+\linespread{1.24}
+\raggedbottom
+\setlength{\headheight}{26.2pt}
+\emergencystretch=3em
+\hbadness=10000
+\hfuzz=50pt
+
+% Make \paragraph headings break onto a new line
+\titleformat{\paragraph}[block]{\normalfont\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\paragraph}{0pt}{1.0ex plus 0.2ex minus 0.1ex}{0.6ex}
+\newcommand{\blockparagraph}[1]{\paragraph*{#1}}
+
+% Configurations
+\coursename{Hệ thống thông minh}
+\reporttype{Báo cáo ứng dụng}
+\title{Used Mobile Phone Price Prediction}
+\advisor{& PSG.TS. Quản Thành Thơ &}
+\reporttime{Tháng 4/2026}
+\stuname{%
+  & Ngô Nhất Toàn & 2570471 \\
+  & Nguyễn Hoàng Nam & 2570471 \\
+  & Nguyễn Huỳnh Như & 2570471 \\
+}
+
+\begin{document}
+\hypersetup{pageanchor=false}
+\coverpage
+
+\pagenumbering{Roman}
+\setcounter{page}{1}
+\renewcommand{\contentsname}{Mục lục}
+\renewcommand{\figurename}{Hình}
+\tableofcontents
+\clearpage
+\hypersetup{pageanchor=true}
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\input{chapters/chapter1_overview_and_stakeholders.tex}
+\input{chapters/chapter2_algorithm_theory.tex}
+\input{chapters/chapter3_system_design.tex}
+\input{chapters/chapter4_dataset_and_preprocessing.tex}
+\input{chapters/chapter5_ai_pipeline_training_deployment.tex}
+\input{chapters/chapter6_evaluation_and_conclusion.tex}
+
+\clearpage
+\appendix
+\addcontentsline{toc}{section}{Phụ lục kỹ thuật}
+\section*{Phụ lục kỹ thuật}
+
+\input{chapters/chapterA_source_code_walkthrough.tex}
+\input{chapters/chapterB_risks_limitations_and_quality_assurance.tex}
+\input{chapters/chapterC_deployment_operations_and_future_work.tex}
+\input{chapters/chapterD_data_dictionary_and_feature_reference.tex}
+
+\end{document}

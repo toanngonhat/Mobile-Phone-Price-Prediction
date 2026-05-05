@@ -1,0 +1,64 @@
+\section{Tổng quan bài toán, bối cảnh ứng dụng và các bên liên quan}
+
+\subsection{Bối cảnh thực tiễn của bài toán}
+
+Trong thị trường điện thoại cũ, giá trị của một thiết bị không chỉ phụ thuộc vào một thông số đơn lẻ mà là kết quả tổng hợp của nhiều yếu tố như thương hiệu, cấu hình phần cứng, năm phát hành, mức hao mòn theo thời gian và kỳ vọng của thị trường đối với từng phân khúc sản phẩm. Trong thực tế, người dùng phổ thông thường định giá điện thoại bằng cảm tính hoặc theo giá tham khảo rời rạc từ các sàn giao dịch, dẫn đến hiện tượng định giá quá cao, quá thấp hoặc không nhất quán giữa các mẫu máy tương đồng.
+
+Trong quá trình thực hiện, dự án \texttt{Mobile-Phone-Price-Prediction} được xây dựng để giải quyết chính khoảng trống này. Điểm quan trọng của hệ thống là nó không chỉ dừng ở việc tạo ra một mô hình hồi quy dự đoán giá, mà còn hiện thực toàn bộ chu trình vận hành xung quanh mô hình gồm: chuẩn bị dữ liệu, mở rộng dữ liệu bằng mẫu tổng hợp, huấn luyện mô hình, đánh giá mô hình, quản lý phiên bản, chuyển đổi mô hình active, quản lý người dùng và cung cấp giao diện web cho suy luận. Như vậy, về mặt học thuật, dự án là một ví dụ hoàn chỉnh của một hệ thống machine learning vận hành được trên dữ liệu cấu trúc; về mặt kỹ thuật, đây là một sản phẩm phần mềm có ranh giới chức năng tương đối rõ ràng, phục vụ cả hai lớp nhu cầu: vận hành ứng dụng và vận hành mô hình.
+
+\subsection{Mô tả bài toán}
+
+Bài toán cốt lõi của hệ thống là \textbf{bài toán hồi quy có giám sát} với mục tiêu ước lượng giá bán lại của điện thoại di động. Biến đầu vào được hình thành từ các đặc trưng cấu trúc thiết bị. 
+
+Từ góc độ nghiệp vụ, hệ thống được thiết kế để giải một bài toán hỗ trợ ra quyết định định giá trong bối cảnh giao dịch điện thoại cũ. Cụ thể, hệ thống hướng tới ba mục tiêu nghiệp vụ lớn:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Cung cấp một mức giá tham chiếu cho người dùng cuối khi họ có nhu cầu mua hoặc bán điện thoại cũ.
+    \item Cung cấp cho người quản trị và nhà phân tích dữ liệu một công cụ thực nghiệm để bổ sung dữ liệu, huấn luyện lại mô hình và so sánh các phiên bản.
+    \item Thiết lập một quy trình tối thiểu của MLOps ở quy mô nhỏ: dữ liệu $\rightarrow$ mô hình $\rightarrow$ đánh giá $\rightarrow$ triển khai $\rightarrow$ thay mô hình active.
+\end{enumerate}
+
+Bài toán này có tính đại diện tốt cho các ứng dụng định giá tài sản số hoặc hàng hóa đã qua sử dụng, nơi đầu ra phụ thuộc mạnh vào đặc trưng cấu hình và thời gian sử dụng, nhưng dữ liệu thị trường thường nhiễu và không cân bằng.
+
+\subsection{Các bên liên quan}
+
+\blockparagraph{Người bán điện thoại đã qua sử dụng}
+
+Nhóm người bán là bên liên quan hưởng lợi trực tiếp nhất. Trong thực tế, người bán thường có ba khó khăn: không biết giá hợp lý, không biết mức khấu hao hợp lý theo thời gian, và không biết cấu hình hiện có của máy đang nằm ở phân khúc nào so với mặt bằng thị trường. Một mô hình định giá tốt có thể giảm đáng kể độ lệch trong định giá ban đầu. Nếu giá niêm yết ban đầu hợp lý hơn, xác suất giao dịch thành công tăng lên, thời gian thương lượng giảm xuống và trải nghiệm giao dịch cũng tốt hơn.
+
+Lợi ích định lượng tiềm năng có thể được hiểu như sau: giả sử sai lệch định giá thủ công trung bình của người dùng không có công cụ hỗ trợ là $\epsilon_{manual}$ và sai lệch trung bình khi tham khảo mô hình là $\epsilon_{model}$, khi đó lợi ích kỹ thuật cơ bản là
+$$
+\Delta \epsilon = \epsilon_{manual} - \epsilon_{model}.
+$$
+Nếu $\Delta \epsilon > 0$, hệ thống thực sự đang cải thiện chất lượng định giá.
+
+\blockparagraph{Người mua thiết bị cũ:}
+
+Người mua là nhóm hưởng lợi ở phía ngược lại của giao dịch. Trong thị trường hàng cũ, người mua thường bị bất lợi thông tin, nhất là khi người bán không minh bạch về cấu hình, mức hao mòn hoặc mức chênh giữa giá đăng bán và giá trị thực. Một hệ thống dự đoán giá có thể giúp người mua hình thành khoảng giá chấp nhận được trước khi ra quyết định, từ đó giảm rủi ro mua quá giá trị thực. Nếu được triển khai rộng hơn, hệ thống còn có thể hỗ trợ chức năng sàng lọc nhanh nhiều lựa chọn trong cùng một mức ngân sách.
+
+\blockparagraph{Data scientist hoặc kỹ sư ML vận hành hệ thống:}
+
+Đây là nhóm sử dụng các chức năng sâu hơn của dashboard. Trong hệ thống, data scientist được cấp quyền xem thống kê dữ liệu, sinh dữ liệu tổng hợp, huấn luyện mô hình mới với các siêu tham số khác nhau, chọn tập đặc trưng tùy biến, nhập thêm bản ghi bằng tay hoặc bằng CSV, xem các version mô hình và đổi model active. Như vậy, hệ thống đóng vai trò như một sandbox vận hành mô hình học máy ở quy mô nhỏ, nơi các thí nghiệm có thể được chuyển hóa thành một phiên bản mô hình có thể sử dụng ngay cho suy luận.
+
+\blockparagraph{Quản trị viên hệ thống:}
+
+Quản trị viên không trực tiếp can thiệp vào thuật toán, nhưng họ đảm bảo tính ổn định của hệ thống thông qua các chức năng người dùng: thêm tài khoản, sửa vai trò, phân quyền, xóa tài khoản, kiểm soát số lượng admin còn lại. Đây là một vai trò quan trọng trong các hệ thống triển khai thực tế, vì mô hình học máy chỉ là một thành phần; để mô hình phục vụ được người dùng, cần có quản trị truy cập và chính sách sử dụng hợp lệ.
+
+\blockparagraph{Cửa hàng thu mua điện thoại cũ (bên liên quan gián tiếp):}
+
+ Sử dụng ứng dụng như một lớp tham chiếu ban đầu trong bước báo giá.
+
+\subsection{Giá trị và giới hạn của ứng dụng}
+
+\blockparagraph{Giá trị cốt lõi mà hệ thống mang lại}
+
+Giá trị đầu tiên là \textbf{chuẩn hóa định giá}. Thay vì định giá bằng cảm nhận chủ quan, người dùng có thêm một hàm ánh xạ từ cấu hình thiết bị sang khoảng giá dự kiến. Giá trị thứ hai là \textbf{tính tái huấn luyện}. Hệ thống không khóa mô hình ở một lần huấn luyện duy nhất; người dùng có thể bổ sung dữ liệu mới rồi huấn luyện lại để phản ánh phân phối mới của thị trường. Giá trị thứ ba là \textbf{khả năng kiểm soát vòng đời mô hình}. Việc lưu version, metadata, feature importance và active model giúp quá trình vận hành minh bạch hơn. Giá trị thứ tư là \textbf{chi phí triển khai thấp}. Vì hệ thống chạy localhost bằng Flask, không cần dịch vụ nền phức tạp, rất phù hợp cho mục tiêu học tập, nghiên cứu, demo kỹ thuật hoặc vận hành nội bộ.
+
+\blockparagraph{Mức độ phù hợp của bài toán với machine learning}
+
+Không phải mọi bài toán định giá đều thích hợp với học máy. Một bài toán phù hợp cần có các điều kiện: tồn tại dữ liệu lịch sử, đầu ra có thể xem như hàm của một tập đặc trưng đầu vào, và có đủ động lực để mô hình hóa các tương tác phức tạp giữa các biến. Dự án này thỏa cả ba điều kiện trên. Dữ liệu có sẵn ở Kaggle; các đặc trưng phần cứng và thời gian sử dụng rõ ràng có liên hệ tới giá; và mối quan hệ giữa thương hiệu, cấu hình, đời máy và khấu hao là phi tuyến, vượt ra ngoài khả năng của các công thức tuyến tính đơn giản.
+
+\blockparagraph{Phạm vi và giới hạn của hệ thống}
+
+Mặc dù hữu ích, hệ thống vẫn chỉ là một mô hình hỗ trợ quyết định, không phải một công cụ định giá tuyệt đối. Ở phiên bản hiện tại, hệ thống chưa xét tới các biến nghiệp vụ quan trọng như tình trạng ngoại hình, số lần thay pin, độ hiếm của máy, khu vực giao dịch, nhu cầu thị trường ngắn hạn hoặc sự kiện ra mắt model mới. Do đó, giá dự đoán phải được hiểu là \textit{giá tham chiếu dựa trên cấu hình kỹ thuật và tuổi đời}, không phải là giá cuối cùng của mọi giao dịch.
+

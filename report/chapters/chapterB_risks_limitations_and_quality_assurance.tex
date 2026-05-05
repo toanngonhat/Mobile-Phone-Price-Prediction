@@ -1,0 +1,44 @@
+\section{Rủi ro, giới hạn và kiểm soát chất lượng của hệ thống}
+
+\subsection{Rủi ro dữ liệu và rủi ro đánh giá mô hình}
+\blockparagraph{Rủi ro dữ liệu gốc và dữ liệu tổng hợp}
+
+Rủi ro nền tảng nhất của hệ thống nằm ở chất lượng dữ liệu. Dữ liệu thiết bị cũ ngoài thực tế thường không đồng nhất về cách ghi nhận cấu hình, tình trạng pin, giá tham chiếu và thời điểm giao dịch. Khi dữ liệu gốc đã không ổn định, mô hình dễ học các quan hệ chỉ đúng cục bộ. Rủi ro này tăng thêm khi hệ thống sử dụng dữ liệu tổng hợp để bù thiếu cho một số phân khúc, đặc biệt là nhóm Apple. Nếu profile sinh dữ liệu không phản ánh đúng phân phối thị trường, mô hình có thể được cải thiện trên chỉ số tổng thể nhưng lại lệch ở mức hành vi thực tế.
+
+Vì vậy, dữ liệu tổng hợp chỉ nên được xem là công cụ bù đắp có kiểm soát, không phải thay thế lâu dài cho dữ liệu quan sát thật. Một hướng cải tiến phù hợp là gắn nguồn gốc bản ghi ngay từ lúc nhập dữ liệu để theo dõi tác động của từng nhóm lên chất lượng mô hình.
+
+\blockparagraph{Rủi ro leakage và sai lệch đánh giá}
+
+Mã nguồn hiện đã có ý thức loại \texttt{normalized\_new\_price} khỏi tập đặc trưng mặc định. Tuy nhiên, vì dashboard cho phép cấu hình feature tùy chỉnh, về lý thuyết vẫn có khả năng huấn luyện mô hình với biến này. Khi đó, chỉ số đánh giá có thể tốt lên theo cách giả tạo. Đây là dạng \textit{evaluation leakage} phát sinh từ quyền cấu hình hơn là từ lỗi tiền xử lý thuần túy.
+
+Một biện pháp phù hợp hơn cho môi trường nghiên cứu là xác định rõ danh sách feature cấm, hoặc ít nhất gắn cảnh báo rõ trong giao diện khi người dùng chọn các biến có khả năng gây leakage.
+
+\subsection{Rủi ro vận hành, triển khai và bảo mật}
+
+\blockparagraph{Tính nhất quán của runtime}
+
+Ở lớp triển khai, mô hình được nạp động từ version active mỗi khi khởi tạo \texttt{PhonePriceModel}. Cách làm này tạo tính linh hoạt cho việc thay đổi model, nhưng cũng mở ra rủi ro: nếu version active bị xóa, ghi đè sai hoặc không nạp được, hệ thống có thể chuyển sang hành vi fallback. Về mặt availability, đây là cách xử lý chấp nhận được; về mặt vận hành, nó lại tạo nguy cơ người dùng không nhận ra đầu ra đang đến từ \texttt{\_mock\_predict()} thay vì mô hình thật.
+
+Do đó, trạng thái nạp model nên được ghi log rõ ràng và hiển thị minh bạch cho admin hoặc data scientist.
+
+\blockparagraph{Rủi ro bảo mật và quản trị}
+
+Từ góc nhìn bảo mật, hệ thống hiện còn một số giới hạn rõ ràng: mật khẩu lưu plaintext trong JSON, secret key mặc định là chuỗi tĩnh nếu không có biến môi trường, chưa có rate limit cho login và chưa có audit log cho các hành động nhạy cảm như đổi active model hay thay đổi người dùng. Những điểm này không làm mất giá trị của đồ án trong bối cảnh chạy localhost, nhưng cần được nêu rõ để tránh đánh giá hệ thống như một sản phẩm production-ready về bảo mật.
+
+\blockparagraph{Rủi ro diễn giải kết quả bởi người dùng}
+
+Một rủi ro thường bị xem nhẹ là rủi ro diễn giải. Mô hình dự đoán giá rất dễ bị hiểu thành ``giá đúng tuyệt đối'', trong khi kết quả thực chất chỉ là mức tham chiếu phụ thuộc mạnh vào dữ liệu lịch sử và chưa bao quát các yếu tố như ngoại hình máy, phụ kiện đi kèm hay khu vực giao dịch. Nếu không có lớp giải thích phù hợp, người dùng cuối có thể đặt kỳ vọng sai vào hệ thống.
+
+\subsection{Kiểm soát chất lượng hiện có và hướng tăng cường}
+
+\blockparagraph{Các cơ chế kiểm soát hiện có}
+
+Dù còn nhiều giới hạn, hệ thống hiện đã có một lớp kiểm soát chất lượng tối thiểu gồm: kiểm tra schema dữ liệu trước khi huấn luyện, kiểm tra giá trị dương của \texttt{used\_price} và \texttt{new\_price}, kiểm tra version tồn tại trước khi kích hoạt hoặc xóa, kiểm tra role trước khi truy cập chức năng nhạy cảm và chặn việc xóa admin cuối cùng. Các cơ chế này cho thấy hệ thống không chỉ tập trung vào happy path mà đã bắt đầu xử lý các trường hợp lỗi phổ biến.
+
+\blockparagraph{Các chỉ dấu chất lượng nên bổ sung}
+
+Nếu hệ thống được mở rộng tiếp, các chỉ dấu chất lượng nên được tăng cường theo ba hướng: độ tin cậy thống kê, khả năng giám sát vận hành và mức độ công bằng giữa các nhóm thiết bị. Ở góc độ thống kê, cần bổ sung cross-validation và phân tích sai số theo từng phân khúc. Ở góc độ vận hành, cần có drift detection, logging đầy đủ cho train/import/activate model và test cho các luồng chính. Ở góc độ công bằng, nên theo dõi sai số có điều kiện theo thương hiệu hoặc dải giá, ví dụ:
+$$
+\mathrm{MAE}_{brand=b} = \frac{1}{n_b}\sum_{i: brand_i=b}|y_i - \hat{y}_i|.
+$$
+Nếu một số thương hiệu có sai số cao bất thường, dữ liệu hoặc chiến lược augmentation cần được xem xét lại.

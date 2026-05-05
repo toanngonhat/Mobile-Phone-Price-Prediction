@@ -1,0 +1,212 @@
+\section{Từ điển dữ liệu, ánh xạ đặc trưng và tham chiếu nghiệp vụ}
+
+\subsection{Dữ liệu huấn luyện và ánh xạ đặc trưng}
+
+Trong một hệ thống học máy triển khai thực tế, dữ liệu không chỉ là ``một bảng có nhiều cột'' mà còn là hạ tầng ngữ nghĩa của toàn bộ mô hình. Nếu người vận hành không hiểu đúng ý nghĩa của từng trường, đơn vị đo, miền giá trị hợp lệ và mối liên hệ giữa trường đó với biến mục tiêu, pipeline rất dễ suy giảm chất lượng ngay cả khi phần hiện thực phần mềm vẫn vận hành đúng. Vì vậy, một từ điển dữ liệu chi tiết là thành phần quan trọng của báo cáo kỹ thuật.
+
+Phần này xây dựng lớp tham chiếu dữ liệu theo bốn câu hỏi trung tâm:
+\begin{itemize}
+    \item dữ liệu là gì;
+    \item mỗi trường đo lường điều gì;
+    \item trường được xử lý ra sao trong pipeline;
+    \item người dùng cần hiểu như thế nào để nhập dữ liệu và diễn giải mô hình một cách chính xác.
+\end{itemize}
+
+{\small
+\begin{center}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{3.2cm}|>{\raggedright\arraybackslash}p{2.3cm}|>{\raggedright\arraybackslash}p{2.2cm}|X|}
+\hline
+\textbf{Trường} & \textbf{Loại biến} & \textbf{Đơn vị} & \textbf{Diễn giải chi tiết} \\
+\hline
+\texttt{device\_brand} & Danh mục & Không áp dụng & Thương hiệu thiết bị. Trong thực tế phản ánh vừa yếu tố kỹ thuật vừa yếu tố cảm nhận thị trường. \\
+\hline
+\texttt{os} & Danh mục & Không áp dụng & Hệ điều hành thiết bị. Trong dữ liệu hiện có chủ yếu là Android, iOS, Windows và Others. \\
+\hline
+\texttt{screen\_size} & Liên tục & cm & Kích thước đường chéo màn hình theo centimét trong tập gốc; được đổi về inch trong bước huấn luyện. \\
+\hline
+\texttt{rear\_camera\_mp} & Liên tục & MP & Độ phân giải camera sau. Chỉ là chỉ báo gần đúng cho khả năng camera, không đo toàn diện chất lượng ảnh. \\
+\hline
+\texttt{front\_camera\_mp} & Liên tục & MP & Độ phân giải camera trước. \\
+\hline
+\texttt{internal\_memory} & Liên tục/bán rời rạc & GB & Bộ nhớ trong. Một trong các biến dự báo mạnh nhất trong metadata hiện có. \\
+\hline
+\texttt{ram} & Liên tục/bán rời rạc & GB & Dung lượng RAM của thiết bị. \\
+\hline
+\texttt{battery} & Liên tục & mAh & Dung lượng pin danh nghĩa của thiết bị. \\
+\hline
+\texttt{weight} & Liên tục & gram & Khối lượng thiết bị. Biến này hiện không nằm trong tập đặc trưng mặc định. \\
+\hline
+\texttt{release\_year} & Thứ bậc/số nguyên & năm & Năm phát hành của thiết bị. Gián tiếp phản ánh thế hệ công nghệ. \\
+\hline
+\texttt{days\_used} & Số nguyên & ngày & Số ngày thiết bị đã qua sử dụng. Biến này đóng vai trò thước đo khấu hao. \\
+\hline
+\path{normalized_used_price} & Liên tục & log-price & Logarit tự nhiên của giá máy cũ. Được mũ hóa lại khi huấn luyện. \\
+\hline
+\path{normalized_new_price} & Liên tục & log-price & Logarit tự nhiên của giá máy mới. Có nguy cơ target leakage nếu dùng trực tiếp. \\
+\hline
+\end{tabularx}
+\end{center}
+}
+
+
+Bảng trên cho thấy mỗi trường không chỉ là một cột dữ liệu, mà còn là một giả định ngữ nghĩa về thị trường thiết bị cũ. Từ đó có thể rút ra hai điểm chính:
+\begin{itemize}
+    \item mỗi trường đều mang một nội hàm nghiệp vụ cụ thể;
+    \item nếu giả định ngữ nghĩa của trường sai hoặc thiếu, chất lượng mô hình có thể suy giảm ngay cả khi thuật toán giữ nguyên.
+\end{itemize}
+
+\blockparagraph{Ánh xạ từ trường nguồn sang đặc trưng mô hình}
+
+Hệ thống không huấn luyện trực tiếp trên \texttt{RAW\_SCHEMA}. Thay vào đó, nó ánh xạ thành một không gian đặc trưng dễ hiểu hơn đối với mô hình và người vận hành. Bảng sau mô tả quan hệ này.
+
+{\small
+\begin{center}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{3.3cm}|>{\raggedright\arraybackslash}p{3.3cm}|X|}
+\hline
+\textbf{Trường nguồn} & \textbf{Đặc trưng mô hình} & \textbf{Phép biến đổi} \\
+\hline
+\texttt{device\_brand} & \texttt{brand} & Đổi tên, giữ nguyên giá trị chuỗi. \\
+\hline
+\texttt{os} & \texttt{os} & Giữ nguyên, chỉ dùng khi feature set cho phép. \\
+\hline
+\texttt{internal\_memory} & \texttt{storage} & Đổi tên. \\
+\hline
+\texttt{battery} & \texttt{battery\_capacity} & Đổi tên. \\
+\hline
+\texttt{rear\_camera\_mp} & \texttt{camera\_mp} & Đổi tên. \\
+\hline
+\texttt{screen\_size} & \texttt{screen\_size} & Chuyển đổi từ cm sang inch bằng cách chia cho 2.54. \\
+\hline
+\texttt{front\_camera\_mp} & \texttt{front\_camera\_mp} & Giữ nguyên nếu được chọn. \\
+\hline
+\texttt{weight} & \texttt{weight} & Giữ nguyên nếu được chọn. \\
+\hline
+\texttt{release\_year} & \texttt{release\_year} & Giữ nguyên. \\
+\hline
+\texttt{days\_used} & \texttt{days\_used} & Giữ nguyên. \\
+\hline
+\path{normalized_new_price} & \path{normalized_new_price} & Giữ nguyên nếu người dùng chọn feature tùy chỉnh. \\
+\hline
+\path{normalized_used_price} & target $y$ & Mũ hóa thành $y = \exp(x)$, với $x$ là \path{normalized_used_price}. \\
+\hline
+\end{tabularx}
+\end{center}
+}
+
+
+Giữa \textit{feature for training} và \textit{feature for storage} có một lớp tách biệt rõ ràng. Cách tổ chức này làm pipeline linh hoạt hơn, đồng thời yêu cầu lớp ánh xạ phải được hiểu đúng trong quá trình vận hành.
+
+\subsection{Dữ liệu suy luận và ràng buộc đầu vào}
+
+Dữ liệu mà người dùng nhập trong giao diện không trùng hoàn toàn với dữ liệu huấn luyện. Trên giao diện, người dùng chủ yếu thao tác với các biến sau:
+
+\begin{itemize}
+    \item branch/hãng,
+    \item model,
+    \item storage,
+    \item ram (trong một số trường hợp),
+    \item days\_used,
+    \item battery\_health.
+\end{itemize}
+
+Các biến còn lại như hệ điều hành, kích thước màn hình, camera, năm phát hành và giá mới chuẩn hóa được điền gián tiếp từ catalog. Cách tổ chức này có hai ưu điểm chính:
+\begin{itemize}
+    \item giảm gánh nặng nhập liệu cho người dùng;
+    \item giữ đầu vào suy luận gọn hơn và đồng nhất hơn.
+\end{itemize}
+Tuy nhiên, cách tiếp cận này cũng đặt ra một yêu cầu quan trọng: catalog thiết bị phải đúng và được cập nhật nhất quán.
+
+\blockparagraph{Biến suy luận do hệ thống dẫn xuất}
+
+Một chi tiết rất hay của hệ thống là biến \texttt{battery\_health} không tồn tại trong dữ liệu huấn luyện gốc, nhưng lại được dùng tại thời điểm suy luận để điều chỉnh \texttt{battery\_capacity}. Công thức nội bộ có thể viết dưới dạng:
+$$
+\texttt{battery\_capacity\_runtime} = \max\left(1000, \left\lfloor \texttt{battery\_base}\times\frac{\texttt{battery\_health\_pct}}{100} \right\rceil\right).
+$$
+
+Cơ chế này có ý nghĩa nghiệp vụ rõ ràng ở hai khía cạnh:
+\begin{itemize}
+    \item mô hình gốc không cần học trực tiếp từ một trường riêng tên là ``battery health'' ;
+    \item hệ thống vẫn phản ánh được mức suy giảm thực tế của pin thông qua dung lượng pin hiệu dụng.
+\end{itemize}
+Nói cách khác, người dùng có thể cung cấp một yếu tố xuống cấp thực tế của thiết bị mà không làm thay đổi schema dữ liệu huấn luyện cốt lõi.
+
+\blockparagraph{Ràng buộc đầu vào và miền giá trị hợp lệ}
+
+Từ thiết kế kiểm tra đầu vào của hệ thống, có thể rút ra miền giá trị hợp lệ của một số biến nhập như sau:
+
+{\small
+\begin{center}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{4.2cm}|X|}
+\hline
+\textbf{Biến} & \textbf{Miền giá trị} & \textbf{Nguồn kiểm tra} \\
+\hline
+\texttt{days\_used} & từ 1 đến $5\times365$ & \texttt{\_parse\_int(..., 1, 5*365)} \\
+\hline
+\texttt{storage} & từ 8 đến 1024 & kiểm tra trong hàm dựng feature \\
+\hline
+\texttt{ram} & từ 1 đến 32 (với máy không phải iPhone) & kiểm tra trong hàm dựng feature \\
+\hline
+\texttt{battery\_health} & từ 1 đến 100, mặc định 80 nếu trống/unknown & logic xử lý form \\
+\hline
+\texttt{used\_price} & $>0$ & kiểm tra khi nhập dữ liệu \\
+\hline
+\texttt{new\_price} & $>0$ & kiểm tra khi nhập dữ liệu \\
+\hline
+\end{tabularx}
+\end{center}
+}
+
+
+Việc xác định rõ miền giá trị của từng biến là cần thiết vì ba lý do:
+\begin{itemize}
+    \item hỗ trợ kiểm thử đầu vào;
+    \item hỗ trợ viết tài liệu hướng dẫn người dùng;
+    \item giảm nguy cơ dữ liệu bất thường đi vào pipeline suy luận.
+\end{itemize}
+
+\blockparagraph{Đặc tính đo lường của các biến}
+
+Một sai lầm thường gặp trong mô tả dữ liệu là xem mọi trường số đều là biến liên tục ``thuần túy''. Trong phần dữ liệu hiện tại, một số biến tuy lưu dưới dạng số thực nhưng thực chất là bán rời rạc hoặc biến thứ bậc. Ví dụ:
+
+\begin{itemize}
+    \item \texttt{ram} thường nhận các mức như 2, 3, 4, 6, 8, 12.
+    \item \texttt{internal\_memory} nhận các mức 32, 64, 128, 256, 512, 1024.
+    \item \texttt{release\_year} là biến thứ bậc theo thời gian.
+    \item \texttt{days\_used} là biến đếm.
+\end{itemize}
+
+Các đặc điểm trên giải thích vì sao mô hình cây phù hợp với bài toán này:
+\begin{itemize}
+    \item mô hình xử lý tự nhiên các biến dạng ngưỡng và phân mảnh;
+    \item mô hình không đòi hỏi giả định tuyến tính trơn giữa đầu vào và đầu ra như nhiều phương pháp khác.
+\end{itemize}
+
+\subsection{Metadata mô hình}
+
+Ngoài dữ liệu huấn luyện, pipeline còn sinh một loại ``dữ liệu vận hành'' quan trọng là metadata mô hình. Từ điển cho metadata được mô tả như sau:
+
+{\small
+\begin{center}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{2.5cm}|X|}
+\hline
+\textbf{Trường metadata} & \textbf{Kiểu} & \textbf{Ý nghĩa} \\
+\hline
+\texttt{version} & số nguyên & Số hiệu version mô hình. \\
+\hline
+\texttt{records} & số nguyên & Số bản ghi dùng cho lần huấn luyện này. \\
+\hline
+\texttt{kaggle\_dataset} & chuỗi & Tham chiếu nguồn dữ liệu gốc. \\
+\hline
+\texttt{features} & danh sách & Tập đặc trưng dùng trong huấn luyện. \\
+\hline
+\texttt{target} & chuỗi & Mô tả biến mục tiêu. \\
+\hline
+\texttt{mae}, \texttt{rmse}, \texttt{r2} & số thực & Các chỉ số đánh giá. \\
+\hline
+\texttt{trained\_at} & chuỗi thời gian & Mốc thời gian huấn luyện. \\
+\hline
+\path{feature_importances} & dictionary & Mức quan trọng tương đối của các đặc trưng. \\
+\hline
+\end{tabularx}
+\end{center}
+}

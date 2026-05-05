@@ -1,0 +1,54 @@
+\section{Triển khai, vận hành, bảo trì và định hướng phát triển}
+
+
+\subsection{Khởi chạy hệ thống và môi trường thực thi}
+
+
+Mã nguồn hiện tại cung cấp script \texttt{start.sh} hỗ trợ tạo môi trường ảo và cài dependency, các dependency cốt lõi bao gồm:
+
+\begin{itemize}
+    \item \texttt{pandas}, \texttt{numpy} cho xử lý dữ liệu;
+    \item \texttt{scikit-learn} cho pipeline và Random Forest;
+    \item \texttt{kagglehub} cho tải dữ liệu;
+    \item \texttt{Flask} cho web app;
+    \item \texttt{scipy}, \texttt{matplotlib}, \texttt{seaborn} cho EDA và trực quan hóa;
+    \item \texttt{joblib} cho tuần tự hóa mô hình.
+\end{itemize}
+
+\subsection{Artifact vận hành và quy trình bảo trì mô hình}
+
+
+Trong vận hành, các artifact quan trọng cần được quản lý gồm:
+
+\begin{enumerate}[label=\arabic*.]
+    \item \texttt{sample\_phone\_data.csv}: nguồn dữ liệu huấn luyện hiện hành;
+    \item \texttt{model.pkl}: artifact mô hình đã huấn luyện;
+    \item \texttt{metadata.json}: mô tả ngữ cảnh của mỗi model version;
+    \item \texttt{app\_settings.json}: trạng thái active model và tài khoản quản lý;
+    \item \texttt{reports/*.png}: artifact trực quan hóa phục vụ dashboard hoặc báo cáo.
+\end{enumerate}
+
+Trong vận hành, dữ liệu và metadata cần được sao lưu đồng thời thay vì chỉ giữ model pickle. Nếu mất metadata, bối cảnh huấn luyện sẽ khó được tái dựng đầy đủ.
+
+Từ thiết kế hiện tại, quy trình bảo trì mô hình được tổ chức theo các bước sau:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Định kỳ kiểm tra phân phối dữ liệu và các thống kê mô tả;
+    \item Nhập thêm dữ liệu mới từ CSV hoặc bản ghi thủ công;
+    \item Nếu cần, sinh thêm dữ liệu tổng hợp theo hồ sơ phù hợp;
+    \item Huấn luyện phiên bản mới với siêu tham số xác định;
+    \item So sánh version mới với active version hiện tại;
+    \item Chỉ chuyển active model khi version mới có kết quả tốt hơn hoặc phù hợp hơn;
+    \item Giữ lại ít nhất một version cũ ổn định để rollback.
+\end{enumerate}
+
+Quy trình này giữ đúng tinh thần versioned deployment trong machine learning trên một nền tảng triển khai gọn nhẹ.
+
+\subsection{Các hướng mở rộng, nghiên cứu}
+
+
+Nếu tiếp tục phát triển trong ngắn hạn, các hướng mở rộng trực tiếp nhất gồm mở rộng catalog thiết bị, bổ sung thêm trường dữ liệu như tình trạng ngoại hình, tình trạng pin thực, số SIM, hỗ trợ 5G hoặc khu vực giao dịch, thêm đánh giá chéo và tối ưu lớp suy luận bằng cách cache active model trong bộ nhớ. Các hướng này có thể được thực hiện mà không phải thay đổi triệt để kiến trúc nền.
+
+Ngoài ra, phần kiến trúc có thể được mở rộng theo hướng tách database người dùng và metadata khỏi JSON, tách service huấn luyện khỏi web app, thêm API riêng cho suy luận, xây dựng cơ chế model registry hoặc artifact registry, và bổ sung logging tập trung đi kèm dashboard giám sát vận hành. Những hướng đi này sẽ làm kiến trúc phức tạp hơn, đồng thời mở đường cho giai đoạn sản phẩm hóa nội bộ.
+
+Về mặt nghiên cứu, phần nền tảng hiện tại cũng cho phép tiếp tục mở rộng theo nhiều hướng: so sánh Random Forest với Gradient Boosting, XGBoost hoặc CatBoost trên cùng pipeline; nghiên cứu ảnh hưởng của các hồ sơ sinh dữ liệu tổng hợp tới từng nhóm thương hiệu; xây dựng mô hình ước lượng bất định để dự đoán khoảng giá thay vì giá trị điểm; bổ sung explainability sâu hơn bằng SHAP hoặc permutation importance; và tổ chức lại cơ chế continual learning hoặc periodic retraining. Các hướng này đều có cơ sở trực tiếp từ hệ thống hiện tại vì versioning, feature control và khả năng train lại đã được đặt sẵn trong pipeline.
