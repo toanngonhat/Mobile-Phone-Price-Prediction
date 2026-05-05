@@ -1,0 +1,173 @@
+\section{Cơ sở lý thuyết của thuật toán và lập luận lựa chọn mô hình}
+
+\subsection{Thuật toán cốt lõi được lựa chọn trong hệ thống}
+
+Trong hệ thống hiện thực, thuật toán học máy cốt lõi được lựa chọn là \textbf{Random Forest Regressor}. Hệ thống sử dụng lớp \texttt{RandomForestRegressor} của \texttt{scikit-learn} và đặt nó ở bước cuối của một \texttt{Pipeline}. Điều này có nghĩa kiến trúc mô hình thực tế gồm hai lớp khái niệm: \textit{tiền xử lý đặc trưng} và \textit{mô hình hồi quy tổ hợp}. Nói cách khác, khi thảo luận về ``mô hình'' của dự án, cần hiểu mô hình theo nghĩa rộng là
+$$
+\mathcal{M}(\mathbf{x}) = g(\phi(\mathbf{x})),
+$$
+trong đó $\phi$ là phép biến đổi đặc trưng, còn $g$ là rừng ngẫu nhiên dùng để hồi quy.
+
+\blockparagraph{Phát biểu hình thức của bài toán hồi quy}
+
+Cho tập dữ liệu huấn luyện
+$$
+\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^{N},
+$$
+trong đó $\mathbf{x}_i \in \mathbb{R}^d$ là vector đặc trưng của thiết bị thứ $i$, còn $y_i \in \mathbb{R}_+$ là giá bán lại thực tế. Mục tiêu là học một hàm dự đoán
+$$
+f: \mathbb{R}^d \to \mathbb{R}_+
+$$
+nhằm ước lượng
+$$
+\hat{y}_i = f(\mathbf{x}_i)
+$$
+để sai số giữa $\hat{y}_i$ và $y_i$ nhỏ nhất theo một họ tiêu chuẩn đánh giá phù hợp.
+
+Trong dữ liệu huấn luyện của hệ thống, cột mục tiêu được lưu ở dạng
+$$
+\texttt{normalized\_used\_price} = \log(y),
+$$
+nhưng khi chuẩn bị biến mục tiêu, hệ thống thực hiện
+$$
+y = \exp(\texttt{normalized\_used\_price}).
+$$
+Cách tổ chức này tạo ra hai lớp biểu diễn nhất quán: dữ liệu được lưu theo miền log để ổn định phân phối và hỗ trợ EDA, còn mô hình dự đoán trong miền giá thực để các chỉ số MAE, RMSE giữ nguyên ý nghĩa nghiệp vụ.
+
+\subsection{Random Forest Regressor: nguyên lý nền tảng}
+
+Random Forest là phương pháp tổ hợp dựa trên nhiều cây quyết định độc lập tương đối. Mỗi cây được huấn luyện trên một mẫu bootstrap của dữ liệu, và tại mỗi bước tách nút chỉ xét một tập con đặc trưng ngẫu nhiên. Trong bài toán hồi quy, đầu ra cuối cùng được tính bằng trung bình đầu ra của tất cả cây:
+$$
+\hat{y}(\mathbf{x}) = \frac{1}{T} \sum_{t=1}^{T} h_t(\mathbf{x}),
+$$
+trong đó $T$ là số lượng cây, và $h_t$ là hàm dự đoán của cây thứ $t$.
+
+Với một cây hồi quy đơn lẻ, tại mỗi nút, thuật toán cố gắng tìm phép chia $S \to (S_L, S_R)$ sao cho tổng độ không thuần khiết sau chia là nhỏ nhất. Độ không thuần khiết trong hồi quy thường được đo bằng tổng bình phương sai số trong nút:
+$$
+I(S) = \sum_{(\mathbf{x}_i, y_i) \in S} (y_i - \bar{y}_S)^2,
+$$
+trong đó $\bar{y}_S$ là trung bình của các giá trị mục tiêu trong nút. Một phép chia tốt tối đa hóa phần giảm độ không thuần khiết:
+$$
+\Delta I = I(S) - I(S_L) - I(S_R).
+$$
+
+Vì nhiều cây được huấn luyện trên các mẫu dữ liệu hơi khác nhau và tập đặc trưng hơi khác nhau, trung bình của chúng làm giảm phương sai tổng thể. Đây là cơ chế chính khiến Random Forest thường tổng quát hóa tốt hơn một cây đơn.
+
+\blockparagraph{Giải thích tại sao mô hình cây phù hợp với dữ liệu bảng}
+
+Dữ liệu của dự án là dữ liệu bảng hỗn hợp, gồm biến số liên tục như RAM, dung lượng pin, kích thước màn hình; biến đếm hay bán rời rạc như năm phát hành, số ngày đã dùng; và biến phân loại như hãng hoặc hệ điều hành. Đối với loại dữ liệu này, Random Forest có nhiều lợi thế:
+
+\begin{itemize}
+    \item Không yêu cầu quan hệ tuyến tính giữa đặc trưng và đầu ra.
+    \item Tự động học các ngưỡng quyết định như ``RAM lớn hơn 6GB'' hay ``số ngày sử dụng lớn hơn một mức nào đó''.
+    \item Tương đối bền vững khi dữ liệu có nhiễu hoặc một số biến thiếu giá trị.
+    \item Hỗ trợ suy luận về độ quan trọng của đặc trưng.
+    \item Không đòi hỏi chuẩn hóa dữ liệu mạnh như các mô hình tối ưu theo gradient.
+\end{itemize}
+
+Nếu so sánh với hồi quy tuyến tính, Random Forest biểu diễn tốt hơn các hiệu ứng phi tuyến và tương tác chéo. Nếu so sánh với mạng sâu, Random Forest phù hợp hơn trong bối cảnh dữ liệu không quá lớn, số chiều đầu vào vừa phải và mục tiêu là tính ổn định, dễ vận hành, dễ giải thích.
+
+\subsection{Tiền xử lý dữ liệu}
+
+Mô hình không trực tiếp nhận toàn bộ dữ liệu thô. Thay vào đó, hệ thống xây dựng một \texttt{ColumnTransformer} chia đặc trưng thành hai nhóm: đặc trưng phân loại và đặc trưng số.
+
+Với nhóm phân loại, pipeline là:
+$$
+\phi_{cat} = \texttt{OneHotEncoder} \circ \texttt{Imputer}_{mode}.
+$$
+Bước điền giá trị mode giúp loại bỏ thiếu dữ liệu mà vẫn giữ một nhãn hợp lệ, còn one-hot encoding ánh xạ một biến phân loại nhiều giá trị thành vector nhị phân. Nếu biến \texttt{brand} có $K$ nhãn khác nhau, phép mã hóa one-hot tạo ra vector
+$$
+\mathbf{e}_k \in \{0,1\}^K
+$$
+với đúng một phần tử bằng 1.
+
+Với nhóm số, pipeline là:
+$$
+\phi_{num} = \texttt{Imputer}_{median}.
+$$
+Việc dùng trung vị thay vì trung bình giúp giảm ảnh hưởng của các outlier và phù hợp với dữ liệu thị trường có đuôi phân phối dài.
+
+Toàn bộ phép biến đổi đầu vào là
+$$
+\phi(\mathbf{x}) = [\phi_{cat}(\mathbf{x}_{cat}), \phi_{num}(\mathbf{x}_{num})].
+$$
+Sau đó, rừng ngẫu nhiên làm việc trên không gian đặc trưng đã được chuyển đổi này.
+
+\blockparagraph{Vai trò của từng đặc trưng trong bài toán}
+
+Có thể diễn giải ý nghĩa học thuật của từng đặc trưng mặc định như sau:
+
+\begin{itemize}
+    \item \texttt{brand}: đại diện cho định vị thị trường, giá trị thương hiệu và kỳ vọng người dùng.
+    \item \texttt{ram}: phản ánh năng lực đa nhiệm và phân khúc cấu hình.
+    \item \texttt{storage}: phản ánh dung lượng lưu trữ, ảnh hưởng trực tiếp đến mức giá niêm yết và giá bán lại.
+    \item \texttt{battery\_capacity}: phản ánh mức độ hữu dụng về thời lượng pin.
+    \item \texttt{screen\_size}: đại diện cho phân khúc thiết kế và trải nghiệm sử dụng.
+    \item \texttt{camera\_mp}: đại diện gần đúng cho khả năng chụp ảnh, một yếu tố marketing và trải nghiệm quan trọng.
+    \item \texttt{release\_year}: phản ánh thế hệ công nghệ.
+    \item \texttt{days\_used}: phản ánh khấu hao theo thời gian sử dụng thực.
+\end{itemize}
+
+Trong ngôn ngữ kinh tế kỹ thuật, các biến này cùng nhau mô hình hóa \textit{giá trị chức năng}, \textit{giá trị thương hiệu} và \textit{khấu hao thời gian} của thiết bị.
+
+\blockparagraph{Target leakage và quyết định loại biến khỏi tập mặc định}
+
+Trong quá trình thiết kế tập đặc trưng mặc định, \texttt{normalized\_new\_price} được loại ra dù dữ liệu vẫn có cột này. Lý do là giá máy mới thường có tương quan rất cao với giá máy cũ. Nếu dùng trực tiếp biến này, mô hình có thể đạt kết quả đánh giá tốt nhưng phụ thuộc vào thông tin mà trong nhiều kịch bản triển khai thực tế khó thu được hoặc quá gần với mục tiêu cần dự đoán.
+
+Về mặt thống kê, nếu tồn tại một đặc trưng $z$ sao cho
+$$
+\mathrm{corr}(z, y) \approx 1,
+$$
+nhưng $z$ không đại diện cho thông tin đầu vào hợp lệ tại thời điểm suy luận, thì việc giữ $z$ sẽ làm đánh giá mô hình bị lạc quan hóa. Việc loại biến này khỏi tập mặc định nhằm giữ tính hợp lệ của pipeline học máy ở thời điểm suy luận.
+
+\subsection{Hàm mục tiêu, loss và các chỉ số đánh giá}
+
+Mặc dù hệ thống không cài đặt loss tùy biến, Random Forest Regressor vẫn tối ưu chất lượng tách nhánh theo tiêu chuẩn sai số bình phương. Sau huấn luyện, hệ thống đánh giá mô hình bằng ba chỉ số chính là MAE, RMSE và $R^2$. Bộ ba này được chọn để kết hợp đồng thời thang đo sai số tuyệt đối, thang đo nhạy với lỗi lớn và một chỉ số phản ánh mức độ giải thích phương sai tổng thể.
+
+Sai số tuyệt đối trung bình được định nghĩa bởi:
+$$
+\mathrm{MAE} = \frac{1}{n}\sum_{i=1}^{n} |y_i - \hat{y}_i|.
+$$
+
+Trong công thức trên, $n$ là số quan sát trong tập đánh giá; $y_i$ là giá trị thực của mẫu thứ $i$; $\hat{y}_i$ là giá trị dự đoán tương ứng của mô hình; và $|y_i-\hat{y}_i|$ là độ lớn sai số tuyệt đối tại mẫu đó. Chỉ số này giữ cùng đơn vị với biến mục tiêu, tức đơn vị giá tiền. Vì vậy, MAE là chỉ số trực tiếp nhất để diễn giải mức sai lệch trung bình của mô hình trong bài toán định giá. Tuy nhiên, MAE không nhấn mạnh đủ các lỗi cực lớn, nên cần được đọc cùng RMSE.
+
+Căn sai số bình phương trung bình được định nghĩa bởi:
+$$
+\mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}.
+$$
+
+Trong đó, $n$, $y_i$ và $\hat{y}_i$ giữ nguyên ý nghĩa như ở công thức MAE; $(y_i-\hat{y}_i)^2$ là sai số bình phương tại mẫu thứ $i$; phép căn bậc hai ở bước cuối giúp đưa chỉ số trở về cùng đơn vị với biến mục tiêu để thuận tiện cho diễn giải. Do sai số được bình phương trước khi trung bình, RMSE nhạy cảm hơn nhiều với những trường hợp lỗi lớn. Vì vậy, RMSE phản ánh tốt hơn rủi ro xuất hiện các ngoại lệ dự đoán nghiêm trọng.
+
+Hệ số xác định được định nghĩa bởi:
+$$
+R^2 = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}.
+$$
+
+Ở đây, $n$ là số quan sát của tập đánh giá; $y_i$ là giá trị thực của mẫu thứ $i$; $\hat{y}_i$ là giá trị dự đoán của mô hình; và $\bar{y}$ là giá trị trung bình của biến mục tiêu trên tập đánh giá. Tử số $\sum_{i=1}^{n}(y_i-\hat{y}_i)^2$ biểu diễn tổng bình phương sai số còn lại của mô hình, trong khi mẫu số $\sum_{i=1}^{n}(y_i-\bar{y})^2$ biểu diễn tổng phương sai ban đầu của dữ liệu so với giá trị trung bình. Nếu $R^2$ gần 1, mô hình giải thích được phần lớn phương sai của dữ liệu mục tiêu; nếu $R^2$ gần 0, mô hình không tốt hơn nhiều so với việc luôn dự đoán trung bình.
+
+Ba chỉ số này bổ sung cho nhau: MAE cho biết lỗi trung bình dễ diễn giải, RMSE nhấn mạnh sai số lớn, còn $R^2$ đo mức độ giải thích phương sai mục tiêu của mô hình. Vì vậy, việc đánh giá không nên dựa trên một chỉ số đơn lẻ mà cần đọc đồng thời cả ba thước đo.
+\blockparagraph{Siêu tham số và vai trò điều chuẩn}
+
+\begin{itemize}
+    \item \texttt{n\_estimators}
+
+    Khi tăng \texttt{n\_estimators}, phương sai của tổ hợp thường giảm và mô hình ổn định hơn, nhưng chi phí huấn luyện và suy luận tăng.
+
+    \item \texttt{max\_depth}
+
+    Khi giới hạn \texttt{max\_depth}, mỗi cây ít phức tạp hơn, làm giảm nguy cơ overfitting
+
+    \item \texttt{min\_samples\_split và min\_samples\_leaf}
+
+    Hai tham số này giúp kiểm soát kích thước tối thiểu của các nhánh và lá, giúp tránh các phân hoạch quá nhỏ vốn ghi nhớ nhiễu của dữ liệu.
+\end{itemize}
+  
+\subsection{Quyết định lựa chọn mô hình}
+
+Trong quá trình lựa chọn mô hình, ba trục được dùng để cân nhắc là \textit{độ phù hợp dữ liệu}, \textit{khả năng triển khai} và \textit{khả năng giải thích}. Trên ba trục đó, Random Forest được chọn vì vẫn nắm bắt được quan hệ phi tuyến, vẫn huấn luyện ổn định trên CPU cục bộ và vẫn cho phép trích xuất feature importance để phục vụ diễn giải kỹ thuật.
+
+Nếu dùng mô hình tuyến tính, tính diễn giải có thể cao hơn nhưng sức biểu đạt sẽ thấp hơn. Nếu dùng boosting phức tạp hơn như XGBoost hoặc LightGBM, độ chính xác có thể tăng nhưng kiến trúc triển khai, dependency và cơ chế quản trị mô hình cũng sẽ phức tạp hơn. Nếu dùng deep learning, chi phí huấn luyện, tuning và giải thích sẽ tăng mạnh trong khi chưa chắc tương xứng với quy mô dữ liệu hiện có. Vì vậy, trong bối cảnh triển khai hiện tại, Random Forest được giữ làm mô hình lõi của pipeline.
+
+\blockparagraph{Những giới hạn nội tại của thuật toán}
+
+Dù phù hợp, Random Forest vẫn có hạn chế. Mô hình suy luận bằng trung bình của nhiều cây nên khó diễn giải ở mức vi mô hơn các mô hình tuyến tính. Ngoài ra, nếu phân phối dữ liệu thay đổi mạnh theo thời gian hoặc xuất hiện nhiều model mới ngoài vùng dữ liệu đã học, mô hình sẽ có xu hướng nội suy hơn là ngoại suy chính xác. Vì thế, chất lượng của mô hình phụ thuộc đáng kể vào việc cập nhật dữ liệu và tái huấn luyện định kỳ.

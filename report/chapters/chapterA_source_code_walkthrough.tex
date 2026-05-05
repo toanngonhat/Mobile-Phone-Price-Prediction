@@ -1,0 +1,41 @@
+\section{Cấu trúc hiện thực của hệ thống và quan hệ giữa các module}
+
+\subsection{Điểm vào và lớp điều phối ứng dụng}
+
+\blockparagraph{Điểm vào của ứng dụng}
+
+Tệp \texttt{Mobile-Phone-Price-Prediction/app.py} ở thư mục gốc chỉ đảm nhiệm một vai trò ngắn gọn: import hàm \texttt{create\_app()} từ \texttt{app.app}, sau đó tạo đối tượng \texttt{app} và chạy Flask trên địa chỉ \texttt{127.0.0.1:8000} ở chế độ debug. Thiết kế này tách rời rõ \textit{entrypoint} và \textit{application factory}, nhờ đó việc thay đổi cách khởi chạy sau này thuận lợi hơn.
+
+\blockparagraph{Vai trò của \texttt{app/app.py}}
+
+Ở lớp ứng dụng web, \texttt{app/app.py} là trung tâm điều phối chính. Tệp này tạo Flask app, cấu hình khóa bí mật, sinh danh sách thương hiệu và model từ \texttt{DEVICE\_MODEL\_BRANCH\_MAP}, định nghĩa hàm dựng đặc trưng runtime và khai báo các route trọng yếu như home, login, logout, admin, data-science và route phục vụ report. Về bản chất, đây là nơi nối giao diện HTML, lớp controller nghiệp vụ và lớp mô hình dự đoán.
+
+\blockparagraph{Logic dựng feature runtime}
+
+Hàm \texttt{\_build\_features\_from\_form()} là một điểm then chốt trong thiết kế hệ thống vì nó nối thế giới người dùng với thế giới mô hình. Hàm này thực hiện bốn việc chính:
+\begin{enumerate}[label=\arabic*.]
+    \item kiểm tra hợp lệ của \texttt{branch} và \texttt{model};
+    \item tra cứu template của model trong \texttt{DEVICE\_MODEL\_BRANCH\_MAP};
+    \item tính các biến suy diễn như \texttt{battery\_capacity} từ mức sức khỏe pin;
+    \item trả về đồng thời \textit{feature dictionary} cho mô hình và \texttt{ui\_info} cho giao diện.
+\end{enumerate}
+
+Nhờ lớp logic này, người dùng không cần nhập toàn bộ thông số phần cứng như trong dữ liệu huấn luyện. Đầu vào suy luận vì vậy gọn hơn, nhất quán hơn và ít sai ngữ nghĩa hơn.
+
+\subsection{Các module nghiệp vụ và hạ tầng}
+
+\blockparagraph{Nhóm xác thực và phân quyền}
+
+\texttt{auth\_controller.py} được giữ ở cấu trúc tối giản để phục vụ đúng bài toán phân quyền. Nó đọc thông tin người dùng từ \texttt{app\_settings.json}; nếu tệp chưa có dữ liệu quản trị thì sinh bộ người dùng mặc định từ \texttt{credentials.py}. Hàm \texttt{validate\_login()} đối chiếu tài khoản, mật khẩu và trả về role hợp lệ. Cách làm này đủ gọn cho phạm vi đồ án, dù chưa đạt chuẩn production do mật khẩu còn được lưu plaintext trong JSON.
+
+\blockparagraph{Nhóm điều phối dữ liệu, huấn luyện và quản trị}
+
+\texttt{admin\_controller.py} là mô-đun lớn nhất ở lớp điều phối nghiệp vụ. Các trách nhiệm chính có thể gom thành bảy nhóm: huấn luyện mô hình, sinh dữ liệu tổng hợp, tóm tắt dữ liệu, chuẩn hóa và nhập dữ liệu, quản trị người dùng, quản trị phiên bản mô hình và tạo payload trực quan hóa. Việc một mô-đun cùng lúc bao phủ người dùng, dữ liệu và mô hình cho thấy hệ thống đã đạt mức hoàn chỉnh về chức năng, nhưng cũng chỉ ra đây là khu vực cần ưu tiên tách nhỏ nếu hệ thống tiếp tục mở rộng.
+
+\blockparagraph{Nhóm người dùng và metadata cấu hình}
+
+\texttt{user\_controller.py} chịu trách nhiệm cho các thao tác liên quan tới tài khoản người dùng, trong khi \texttt{settings.py} đóng vai trò lớp cấu hình dùng chung cho đường dẫn dữ liệu, thư mục model và các tham số vận hành. Hai mô-đun này không trực tiếp thực hiện suy luận, nhưng tạo nền ổn định để các chức năng quản trị và huấn luyện vận hành nhất quán.
+
+\blockparagraph{Nhóm mô hình và dữ liệu nền}
+
+\texttt{phone\_price\_model.py} là lớp lõi của phần machine learning. Nó phụ trách nạp model active, tiền xử lý đầu vào, dự đoán và fallback khi model thật không sẵn sàng. Bên cạnh đó, \texttt{device\_catalog.py} đóng vai trò nguồn tri thức tĩnh để dựng feature runtime từ model điện thoại, còn \texttt{data\_utils.py} cung cấp các tiện ích xử lý dữ liệu lặp lại trong pipeline. Ba thành phần này kết hợp lại tạo nên trục kết nối giữa dữ liệu, catalog và mô hình dự đoán.
