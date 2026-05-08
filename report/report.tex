@@ -1,6 +1,7 @@
 \documentclass[twoside]{hcmut-report}
 
 \usepackage{verbatim}
+\usepackage{natbib}
 \usepackage{longtable}
 \usepackage{array}
 \usepackage{tabularx}
@@ -26,8 +27,8 @@
 \advisor{& PSG.TS. Quản Thành Thơ &}
 \reporttime{Tháng 4/2026}
 \stuname{%
-  & Ngô Nhất Toàn & 2570471 \\
-  & Nguyễn Hoàng Nam & 2570471 \\
+  & Ngô Nhất Toàn & 2570515 \\
+  & Nguyễn Hoàng Nam & 2570261 \\
   & Nguyễn Huỳnh Như & 2570471 \\
 }
 
@@ -51,6 +52,11 @@
 \input{chapters/chapter4_dataset_and_preprocessing.tex}
 \input{chapters/chapter5_ai_pipeline_training_deployment.tex}
 \input{chapters/chapter6_evaluation_and_conclusion.tex}
+
+\newpage
+\nocite{*}
+\bibliographystyle{plainnat} 
+\bibliography{references}       
 
 \clearpage
 \appendix
