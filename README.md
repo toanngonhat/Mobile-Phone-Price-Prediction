@@ -93,9 +93,19 @@ User Input -> Flask Route -> Controller Logic -> Model Inference/Training -> UI 
 
 ### Setup Steps
 
+#### Linux / macOS:
+
 ```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python3.9 -m venv venv     # Or python3.10, python3.11... depending on your version
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### Windows:
+
+```cmd
+py -3.9 -m venv venv       # Or python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 

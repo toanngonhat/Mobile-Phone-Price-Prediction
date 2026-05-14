@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Authentication controller for login workflows."""
 
 import json
