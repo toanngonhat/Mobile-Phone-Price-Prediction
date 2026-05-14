@@ -443,10 +443,32 @@ def get_admin_visualization_payload(dataset_path: Path = DATASET_PATH) -> dict:
             if var in df.columns:
                 series = df[var].astype(float).dropna()
                 if len(series) > 0:
+                    # Compute pre-aggregated boxplot metrics
+                    q1 = float(series.quantile(0.25))
+                    q3 = float(series.quantile(0.75))
+                    median_val = float(series.median())
+                    mean_val = float(series.mean())
+                    min_val = float(series.min())
+                    max_val = float(series.max())
+
+                    # Generate precomputed histogram bins
+                    counts, bin_edges = np.histogram(series, bins=40, density=True)
+                    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
                     payload["numeric_distributions"][var] = {
-                        "raw": [round(float(x), 2) for x in series.tolist()],
-                        "mean": round(float(series.mean()), 2),
-                        "median": round(float(series.median()), 2)
+                        "boxplot": {
+                            "q1": round(q1, 2),
+                            "median": round(median_val, 2),
+                            "q3": round(q3, 2),
+                            "min": round(min_val, 2),
+                            "max": round(max_val, 2)
+                        },
+                        "hist": {
+                            "x": [round(float(b), 3) for b in bin_centers.tolist()],
+                            "y": [round(float(c), 6) for c in counts.tolist()]
+                        },
+                        "mean": round(mean_val, 2),
+                        "median": round(median_val, 2)
                     }
                     try:
                         from scipy.stats import gaussian_kde

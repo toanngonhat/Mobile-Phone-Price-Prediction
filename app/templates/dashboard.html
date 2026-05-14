@@ -1170,7 +1170,7 @@
   <script id="usage-price-json"
     type="application/json">{{ visual_payload.usage_price|default({'x': [], 'y': []})|tojson }}</script>
 
-  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <script src="{{ url_for('static', filename='plotly-2.32.0.min.js') }}"></script>
   <script>
     const modelOptionsByBrand = JSON.parse((document.getElementById('model-options-json')?.textContent) || '{}');
     const selectedModel = JSON.parse((document.getElementById('selected-model-json')?.textContent) || '""');
@@ -1247,29 +1247,35 @@
               document.getElementById('boxPlotTitle').textContent = `${titleText} Box Plot`;
               document.getElementById('distPlotTitle').textContent = `${titleText} Distribution`;
 
-              // Box Plot
+              // Precomputed Box Plot
               const boxTrace = {
-                  x: data.raw,
+                  q1: [data.boxplot.q1],
+                  median: [data.boxplot.median],
+                  q3: [data.boxplot.q3],
+                  lowerfence: [data.boxplot.min],
+                  upperfence: [data.boxplot.max],
+                  mean: [data.mean],
                   type: 'box',
+                  orientation: 'h',
                   name: titleText,
-                  marker: { color: '#3174b0' },
-                  boxpoints: 'outliers'
+                  marker: { color: '#3174b0' }
               };
               Plotly.newPlot(boxPlotEl, [boxTrace], { 
                   ...layoutConfig,
                   xaxis: { title: titleText }
               }, config);
 
-              // Histogram + KDE
+              // Precomputed Histogram (rendered as Bar Chart)
               const distTraces = [];
-              distTraces.push({
-                  x: data.raw,
-                  type: 'histogram',
-                  histnorm: 'probability density',
-                  marker: { color: 'steelblue', opacity: 0.6 },
-                  name: 'Frequency',
-                  nbinsx: 40
-              });
+              if (data.hist) {
+                  distTraces.push({
+                      x: data.hist.x,
+                      y: data.hist.y,
+                      type: 'bar',
+                      marker: { color: 'steelblue', opacity: 0.6 },
+                      name: 'Frequency'
+                  });
+              }
 
               if (data.kde_x && data.kde_y) {
                   distTraces.push({
